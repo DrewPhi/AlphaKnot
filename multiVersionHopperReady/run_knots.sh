@@ -8,7 +8,7 @@
 #SBATCH --cpus-per-task=8               # Number of CPU cores for parallel processing
 #SBATCH --gres=gpu:1                    # Request 1 GPU
 #SBATCH --mem=32G                       # Memory per node (adjust if needed)
-#SBATCH --partition=gpu                  # Ensure it runs on a GPU node (modify if necessary)
+#SBATCH --partition=general                  # Ensure it runs on a GPU node (modify if necessary)
 
 # Print GPU availability for debugging
 nvidia-smi
