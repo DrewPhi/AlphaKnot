@@ -4,7 +4,6 @@ import math
 import numpy as np
 import config  # Import config.py
 from joblib import Parallel, delayed
-import weakref
 
 class MCTS:
     def __init__(self, game, nnet):
@@ -57,7 +56,7 @@ class MCTS:
         best_a = np.argmax(ucb_values)
         
         # Clone game efficiently using weak references
-        next_game = weakref.proxy(game.clone())
+        next_game = game.clone()  # Do NOT use weakref.proxy
         next_game.make_move(best_a)
         
         v = self.search(next_game)
