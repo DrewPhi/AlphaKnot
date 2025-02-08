@@ -41,7 +41,6 @@ fi
 
 # Install snappy inside SageMath's Python environment
 echo "Installing snappy inside SageMath..."
-sage -python -m pip install --upgrade pip  # Upgrade pip inside SageMath
 sage -python -m pip install snappy
 # Run the Python script using SageMath
 sage -python main_multi.py
