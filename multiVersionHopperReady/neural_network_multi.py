@@ -1,5 +1,3 @@
-# neural_network_multi.py
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -27,17 +25,22 @@ class KnotNNet(nn.Module):
 
 class NNetWrapper:
     def __init__(self, game):
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
         self.nnet = KnotNNet(game)
         self.board_size = len(game.get_canonical_form())
         self.action_size = game.get_action_size()
         self.optimizer = optim.Adam(self.nnet.parameters(), lr=config.learning_rate)
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.nnet = torch.nn.DataParallel(self.nnet)  # Enable multi-GPU
+
+        # Use DataParallel only if multiple GPUs are available
+        if torch.cuda.device_count() > 1:
+            print(f"Using {torch.cuda.device_count()} GPUs with DataParallel.")
+            self.nnet = torch.nn.DataParallel(self.nnet)
+
         self.nnet.to(self.device)
 
-
+        # Load checkpoint if required
         if config.resumeTraining:
-            # Load model from 'currentModel/current.pth.tar' if resumeTraining is True
             model_path = 'currentModel/current.pth.tar'
             if os.path.isfile(model_path):
                 print(f"Resuming training from {model_path}")
@@ -73,16 +76,27 @@ class NNetWrapper:
         return pi, v
 
     def save_checkpoint(self, filename):
+        """ Save the model, ensuring consistency in DataParallel vs. single-GPU mode. """
+        state_dict = self.nnet.module.state_dict() if isinstance(self.nnet, torch.nn.DataParallel) else self.nnet.state_dict()
         torch.save({
-            'state_dict': self.nnet.state_dict(),
+            'state_dict': state_dict,
             'optimizer': self.optimizer.state_dict(),
         }, filename)
 
     def load_checkpoint(self, filename):
+        """ Load the model, handling potential DataParallel mismatches. """
         if os.path.isfile(filename):
             print(f"Loading model from {filename}")
             checkpoint = torch.load(filename, map_location=self.device)
-            self.nnet.load_state_dict(checkpoint['state_dict'])
+            state_dict = checkpoint['state_dict']
+
+            # Handle loading a model that was saved without DataParallel
+            new_state_dict = {}
+            for k, v in state_dict.items():
+                new_key = k.replace("module.", "") if "module." in k else k
+                new_state_dict[new_key] = v
+
+            self.nnet.load_state_dict(new_state_dict)
             self.optimizer.load_state_dict(checkpoint['optimizer'])
             print("Model loaded successfully.")
         else:
