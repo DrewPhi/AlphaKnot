@@ -12,6 +12,8 @@ save_model_freq = 100          # Save the model every N iterations
 # Parallel MCTS Settings
 num_parallel_mcts = 8  # Adjust based on CPU cores
 c_puct = 1.0  # Exploration constant
+# Parallel execution settings
+num_parallel_games = 8  # Adjust based on the number of CPU cores available
 
 # Existing parameters
 knotter_first = False          # If True, the knotter (Player -1) goes first
