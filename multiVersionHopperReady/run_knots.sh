@@ -10,4 +10,5 @@
 #SBATCH --partition=general             # Use the general partition (CPU-only)
 
 # Run the Python script using SageMath
+which sage
 sage -python main_multi.py
