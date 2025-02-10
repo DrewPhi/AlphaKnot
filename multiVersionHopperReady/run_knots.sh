@@ -11,4 +11,5 @@
 
 
 # Run the Python script using SageMath
+python3 -m pip install joblib matplotlib numpy snappy torch sage 
 sage -python main_multi.py
