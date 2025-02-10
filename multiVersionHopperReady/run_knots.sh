@@ -11,6 +11,4 @@
 
 
 # Run the Python script using SageMath
-python3 -m pip install --upgrade pip 
-python3 -m pip install joblib matplotlib numpy snappy torch sagemath
-sage -python main_multi.py
+python3 main_multi.py
