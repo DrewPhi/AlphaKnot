@@ -10,11 +10,5 @@
 #SBATCH --partition=general             # Use the general partition (CPU-only)
 
 
-# Run the Python script using SageMath
-python3 -m pip install --upgrade pip 
-pip uninstall snappy
-rm -rf ~/.local/lib/python3.8/site-packages/snappy*
 
-pip install --force-reinstall --no-cache-dir --verbose git+https://github.com/3-manifolds/SnapPy.git
-python3 -m pip install --force-reinstall joblib matplotlib numpy torch sagemath
 python3 main_multi.py
