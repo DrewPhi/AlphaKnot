@@ -7,22 +7,61 @@ import numpy as np
 import os
 import config
 
+# Residual 1D Block
+class ResidualBlock1D(nn.Module):
+    def __init__(self, channels, kernel_size=3, dropout=0.3):
+        super(ResidualBlock1D, self).__init__()
+        self.conv1 = nn.Conv1d(channels, channels, kernel_size, padding=kernel_size // 2)
+        self.bn1 = nn.BatchNorm1d(channels)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(dropout)
+        self.conv2 = nn.Conv1d(channels, channels, kernel_size, padding=kernel_size // 2)
+        self.bn2 = nn.BatchNorm1d(channels)
+
+    def forward(self, x):
+        residual = x
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+        out = self.dropout(out)
+        out = self.conv2(out)
+        out = self.bn2(out)
+        out += residual
+        out = self.relu(out)
+        return out
+
 class KnotNNet(nn.Module):
     def __init__(self, game):
         super(KnotNNet, self).__init__()
-        self.input_size = len(game.get_canonical_form())
+        self.input_channels = 10  # assuming each board cell has 10 features
+        self.board_length = len(game.get_canonical_form()) // self.input_channels
         self.action_size = game.get_action_size()
-        self.fc1 = nn.Linear(self.input_size, 64)
-        self.fc2 = nn.Linear(64, 64)
-        self.fc_policy = nn.Linear(64, self.action_size)
-        self.fc_value = nn.Linear(64, 1)
+        self.num_blocks = 3
+        self.hidden_channels = 64
+
+        self.input_conv = nn.Conv1d(self.input_channels, self.hidden_channels, kernel_size=3, padding=1)
+        self.input_bn = nn.BatchNorm1d(self.hidden_channels)
+        self.relu = nn.ReLU()
+
+        self.res_blocks = nn.Sequential(*[
+            ResidualBlock1D(self.hidden_channels, kernel_size=3, dropout=0.3)
+            for _ in range(self.num_blocks)
+        ])
+
+        self.global_avg_pool = nn.AdaptiveAvgPool1d(1)  # output: (batch, channels, 1)
+        self.shared_fc = nn.Linear(self.hidden_channels, 512)
+
+        self.policy_head = nn.Linear(512, self.action_size)
+        self.value_head = nn.Linear(512, 1)
 
     def forward(self, x):
-        x = x.float()
-        x = torch.relu(self.fc1(x))
-        x = torch.relu(self.fc2(x))
-        policy = self.fc_policy(x)
-        value = torch.tanh(self.fc_value(x))
+        x = x.view(-1, self.board_length, self.input_channels).permute(0, 2, 1)  # (B, C, L)
+        x = self.relu(self.input_bn(self.input_conv(x)))
+        x = self.res_blocks(x)
+        x = self.global_avg_pool(x).squeeze(-1)  # (B, C)
+        x = self.relu(self.shared_fc(x))
+        policy = self.policy_head(x)
+        value = torch.tanh(self.value_head(x))
         return policy, value
 
 class NNetWrapper:
