@@ -33,8 +33,8 @@ class ResidualBlock1D(nn.Module):
 class KnotNNet(nn.Module):
     def __init__(self, game):
         super(KnotNNet, self).__init__()
-        self.input_channels = 10  # assuming each board cell has 10 features
-        self.board_length = len(game.get_canonical_form()) // self.input_channels
+        self.board_length = len(game.get_canonical_form())  # 7 in your case
+        self.input_channels = 1  # flat signal, not multichannel
         self.action_size = game.get_action_size()
         self.num_blocks = 3
         self.hidden_channels = 64
@@ -48,14 +48,14 @@ class KnotNNet(nn.Module):
             for _ in range(self.num_blocks)
         ])
 
-        self.global_avg_pool = nn.AdaptiveAvgPool1d(1)  # output: (batch, channels, 1)
+        self.global_avg_pool = nn.AdaptiveAvgPool1d(1)  # (B, C, 1)
         self.shared_fc = nn.Linear(self.hidden_channels, 512)
 
         self.policy_head = nn.Linear(512, self.action_size)
         self.value_head = nn.Linear(512, 1)
 
     def forward(self, x):
-        x = x.view(-1, self.board_length, self.input_channels).permute(0, 2, 1)  # (B, C, L)
+        x = x.view(-1, 1, self.board_length)  # (B, C=1, L)
         x = self.relu(self.input_bn(self.input_conv(x)))
         x = self.res_blocks(x)
         x = self.global_avg_pool(x).squeeze(-1)  # (B, C)
@@ -63,6 +63,7 @@ class KnotNNet(nn.Module):
         policy = self.policy_head(x)
         value = torch.tanh(self.value_head(x))
         return policy, value
+
 
 class NNetWrapper:
     def __init__(self, game):
