@@ -3,14 +3,14 @@
 # === Core Training Parameters ===
 num_iterations = 40           # Number of training iterations
 num_episodes = 100            # Self-play games per iteration
-num_mcts_sims = 25           # Increased from 75 for deeper MCTS
+num_mcts_sims = 800           # Increased from 75 for deeper MCTS
 num_epochs = 20               # NN epochs per training step
 learning_rate = 0.001         # Adam optimizer LR
 
 # === Save & Resume Options ===
 checkpoint_path = './models/6_2/'
 save_model_freq = 5
-resumeTraining = False
+resumeTraining = True
 load_model = False
 load_model_file = 'best.pth.tar'
 

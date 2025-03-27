@@ -138,7 +138,6 @@ class Coach:
         """
         Head-to-head match: candidate vs champion.
         """
-        # Save candidate model
         candidate_dir = 'candidateModels'
         if not os.path.exists(candidate_dir):
             os.makedirs(candidate_dir)
@@ -153,17 +152,42 @@ class Coach:
         champion_net = NNetWrapper(self.game)
         champion_net.load_checkpoint(champion_path)
 
-        # Evaluate head-to-head: alternating which model starts first
-        games_to_play = config.n_games
-        champ_wins, cand_wins = self.evaluate_head_to_head(champion_net, self.nnet, games_to_play)
-        print(f"Head-to-head results (champ vs candidate): {champ_wins}-{cand_wins} out of {games_to_play} games.")
+        # Head-to-head match
+        champ_wins, cand_wins = self.evaluate_head_to_head(champion_net, self.nnet, config.n_games)
+        print(f"Head-to-head results (champ vs candidate): {champ_wins}-{cand_wins} out of {config.n_games} games.")
 
-        if cand_wins > champ_wins:
+        # Tie case: compare composite scores against random player
+        if cand_wins == champ_wins:
+            cand_first, cand_second = self.evaluate_model_vs_random(self.nnet, 100)
+            champ_first, champ_second = self.evaluate_model_vs_random(champion_net, 100)
+
+            def composite(f, s):
+                max_win = max(f, s)
+                avg_win = (f + s) / 2
+                stability = 1 - abs(f - s) / 100
+                power = max_win / 100
+                alpha = 1 - stability * power
+                beta = stability * power
+                return alpha * max_win + beta * avg_win
+
+            cand_score = composite(cand_first, cand_second)
+            champ_score = composite(champ_first, champ_second)
+
+            print(f"Tie-breaker: Composite scores vs random — Candidate: {cand_score:.2f}, Champion: {champ_score:.2f}")
+
+            if cand_score > champ_score:
+                self.nnet.save_checkpoint(champion_path)
+                print("Candidate outperformed champion in composite score. Promoted to champion.")
+            else:
+                self.nnet.load_checkpoint(champion_path)
+                print("Champion remains stronger. Reverting to champion model.")
+        elif cand_wins > champ_wins:
             self.nnet.save_checkpoint(champion_path)
             print("Candidate outperformed champion. Promoted to champion.")
         else:
             self.nnet.load_checkpoint(champion_path)
             print("Champion remains stronger. Reverting to champion model.")
+
 
     def evaluate_head_to_head(self, champion_nnet, candidate_nnet, n_games):
         """
