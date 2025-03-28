@@ -84,17 +84,20 @@ class KnotGame:
         return jones == 1
 
     def get_canonical_form(self):
-        # Return an array encoding all crossing states plus current_player
+        """
+        Returns a (2 * num_crossings, 5) numpy array representing the full generalized PD code.
+        Each row is either the original or mirror resolution of a crossing.
+        The last element is -1, 1, or 0 indicating unresolved, chosen, or rejected.
+        """
         state = []
         for crossing in self.current_pd_code:
-            if crossing[0][4] == 1:
-                state.append(1)
-            elif crossing[1][4] == 1:
-                state.append(2)
-            else:
-                state.append(0)
-        state.append(self.current_player)
-        return np.array(state, dtype=np.int8)
+            for resolution in crossing:
+                encoded = resolution[:4] + [resolution[4]]  # Copy full PD entry including resolution flag
+                state.append(encoded)
+                #print("CANONICAL FORM OF STATE (PD Code):", np.array(state, dtype=np.float32))
+
+        return np.array(state, dtype=np.float32)
+
 
     def get_current_player(self):
         return self.current_player
@@ -106,3 +109,7 @@ class KnotGame:
         cloned_game.game_over = self.game_over
         cloned_game.winner = self.winner
         return cloned_game
+    def get_nn_input(self):
+        # Returns the full generalized PD code as a (num_crossings, 2, 5) numpy array
+        return np.array(self.current_pd_code, dtype=np.float32)
+

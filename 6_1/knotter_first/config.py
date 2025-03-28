@@ -3,7 +3,7 @@
 # === Core Training Parameters ===
 num_iterations = 40           # Number of training iterations
 num_episodes = 100            # Self-play games per iteration
-num_mcts_sims = 75           # Increased from 75 for deeper MCTS
+num_mcts_sims = 200           # Increased from 75 for deeper MCTS
 num_epochs = 20               # NN epochs per training step
 learning_rate = 0.001         # Adam optimizer LR
 

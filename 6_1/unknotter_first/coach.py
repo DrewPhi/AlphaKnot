@@ -32,15 +32,22 @@ class Coach:
         self.mcts = MCTS(game, self.nnet)
 
         while not game.game_over:
-            canonicalBoard = game.get_canonical_form()
+            nn_input = game.get_nn_input()  # Use full generalized PD code
             temp = 1 if len(train_examples) < 10 else 0
 
             for _ in range(self.num_mcts_sims):
                 self.mcts.search(game.clone(), is_root=True)
 
-            pi = self.get_policy(canonicalBoard, temp)
-            train_examples.append([canonicalBoard, pi, game.get_current_player()])
-            action = np.random.choice(len(pi), p=pi)
+            pi_crossing, pi_res = self.get_policy(nn_input, temp)
+            train_examples.append([nn_input, (pi_crossing, pi_res), game.get_current_player()])
+
+            # Create joint distribution over actions (crossing * resolution)
+            joint_policy = np.outer(pi_crossing, pi_res).flatten()
+            valid_moves = game.get_valid_moves()
+            joint_policy *= valid_moves
+            joint_policy /= np.sum(joint_policy) if np.sum(joint_policy) > 1e-12 else 1
+
+            action = np.random.choice(len(joint_policy), p=joint_policy)
             game.make_move(action)
 
         winner = game.winner
@@ -50,19 +57,43 @@ class Coach:
         ]
 
 
-    def get_policy(self, canonicalBoard, temp):
-        s = self._hash_state(canonicalBoard)
-        counts = [self.mcts.Nsa.get((s, a), 0) for a in range(self.game.get_action_size())]
+
+
+
+
+    def get_policy(self, nn_input, temp):
+        s = self._hash_state(nn_input)
+        num_crossings = len(nn_input)
+
+        counts = [self.mcts.Nsa.get((s, a), 0) for a in range(num_crossings * 2)]
+        counts = np.array(counts, dtype=np.float32).reshape(num_crossings, 2)
+
         if temp == 0:
-            best_as = np.array(np.argwhere(counts == np.max(counts))).flatten()
-            probs = np.zeros(len(counts))
-            probs[random.choice(best_as)] = 1.0
-            return probs
-        counts = np.array(counts, dtype=np.float32)
+            max_idx = np.unravel_index(np.argmax(counts), counts.shape)
+            pi_crossing = np.zeros(num_crossings, dtype=np.float32)
+            pi_res = np.zeros(2, dtype=np.float32)
+            pi_crossing[max_idx[0]] = 1.0
+            pi_res[max_idx[1]] = 1.0
+            return pi_crossing, pi_res
+
+        # Apply temperature
         counts = counts ** (1. / temp)
-        counts_sum = float(np.sum(counts))
-        probs = counts / counts_sum if counts_sum > 0 else counts
-        return probs
+        row_sums = counts.sum(axis=1, keepdims=True)
+        row_sums[row_sums == 0] = 1  # prevent division by zero
+
+        pi = counts / row_sums
+
+        pi_crossing = row_sums.flatten()
+        pi_crossing /= np.sum(pi_crossing) if np.sum(pi_crossing) > 0 else 1
+
+        pi_res = pi.mean(axis=0)
+        pi_res /= np.sum(pi_res) if np.sum(pi_res) > 0 else 1
+
+        return pi_crossing, pi_res
+
+
+
+
 
     def learn(self):
         total_start_time = time.time()
@@ -153,7 +184,6 @@ class Coach:
         champion_net.load_checkpoint(champion_path)
 
         if config.promote_by_loss_only:
-            # Compare training loss directly
             champ_net_loss = self.load_champion_loss()
             cand_loss = self.nnet.last_training_loss
             print(f"Loss comparison — Candidate: {cand_loss:.4f}, Champion: {champ_net_loss:.4f}" if champ_net_loss is not None else f"Loss comparison — Candidate: {cand_loss:.4f}, Champion: None")
@@ -166,11 +196,9 @@ class Coach:
                 print("Candidate has higher training loss. Continuing to improve it.")
             return
 
-        # Head-to-head match
         champ_wins, cand_wins = self.evaluate_head_to_head(champion_net, self.nnet, config.n_games)
         print(f"Head-to-head results (champ vs candidate): {champ_wins}-{cand_wins} out of {config.n_games} games.")
 
-        # Tie case: compare composite scores against random player
         if cand_wins == champ_wins:
             cand_first, cand_second = self.evaluate_model_vs_random(self.nnet, 100)
             champ_first, champ_second = self.evaluate_model_vs_random(champion_net, 100)
@@ -204,6 +232,7 @@ class Coach:
 
 
 
+
     def evaluate_head_to_head(self, champion_nnet, candidate_nnet, n_games):
         """
         Play n_games between champion and candidate, alternating the starting player.
@@ -215,31 +244,28 @@ class Coach:
         pd_code = self.game.initial_pd_code
 
         for game_idx in range(n_games):
-            # Alternate starting: even-indexed games: champion starts, odd-indexed: candidate starts.
             if game_idx % 2 == 0:
                 champ_player, cand_player = 1, -1
             else:
                 champ_player, cand_player = -1, 1
 
-            start_player = 1  # Always set game to start with Player 1
-            game = KnotGame(pd_code, start_player)
+            game = KnotGame(pd_code, start_player=1)
 
             while not game.game_over:
-                current_pl = game.get_current_player()
-                if current_pl == champ_player:
-                    state = game.get_canonical_form()
-                    pi, _ = champion_nnet.predict(state)
-                    valid_moves = game.get_valid_moves()
-                    pi = pi * valid_moves
-                    pi = pi / np.sum(pi) if np.sum(pi) > 1e-12 else valid_moves / np.sum(valid_moves)
-                    action = np.argmax(pi)
+                cp = game.get_current_player()
+                state = game.get_nn_input()
+
+                if cp == champ_player:
+                    (pi_cross, pi_res), _ = champion_nnet.predict(state)
                 else:
-                    state = game.get_canonical_form()
-                    pi, _ = candidate_nnet.predict(state)
-                    valid_moves = game.get_valid_moves()
-                    pi = pi * valid_moves
-                    pi = pi / np.sum(pi) if np.sum(pi) > 1e-12 else valid_moves / np.sum(valid_moves)
-                    action = np.argmax(pi)
+                    (pi_cross, pi_res), _ = candidate_nnet.predict(state)
+
+                joint_pi = np.outer(pi_cross, pi_res).flatten()
+                valid_moves = game.get_valid_moves()
+                joint_pi *= valid_moves
+                joint_pi /= np.sum(joint_pi) if np.sum(joint_pi) > 1e-12 else 1
+                action = np.argmax(joint_pi)
+
                 game.make_move(action)
 
             if game.winner == champ_player:
@@ -248,6 +274,7 @@ class Coach:
                 cand_wins += 1
 
         return champ_wins, cand_wins
+
     def save_champion_loss(self, loss_value):
         with open(os.path.join('championModel', 'loss.txt'), 'w') as f:
             f.write(str(loss_value))
@@ -270,52 +297,52 @@ class Coach:
 
         pd_code = self.game.initial_pd_code
         ai_role = 1 if config.knotter_first else -1
-
         wins_first = 0
         wins_second = 0
 
-        # Evaluate when AI goes first
+        # AI goes first
         for _ in range(n_eval_games):
             game = KnotGame(pd_code, ai_role)
             while not game.game_over:
                 cp = game.get_current_player()
+                state = game.get_nn_input()
                 if cp == ai_role:
-                    state = game.get_canonical_form()
-                    pi, _ = nnet.predict(state)
+                    pi_cross, pi_res, value = nnet.predict(state)
+                    joint_pi = np.outer(pi_cross, pi_res).flatten()
                     valid_moves = game.get_valid_moves()
-                    pi = pi * valid_moves
-                    pi = pi / np.sum(pi) if np.sum(pi) > 1e-12 else valid_moves / np.sum(valid_moves)
-                    action = np.argmax(pi)
+                    joint_pi *= valid_moves
+                    joint_pi /= np.sum(joint_pi) if np.sum(joint_pi) > 1e-12 else 1
+                    action = np.argmax(joint_pi)
                 else:
-                    valid_moves = game.get_valid_moves()
-                    valid_actions = np.where(valid_moves == 1)[0]
+                    valid_actions = np.where(game.get_valid_moves() == 1)[0]
                     action = random.choice(valid_actions)
                 game.make_move(action)
             if game.winner == ai_role:
                 wins_first += 1
 
-        # Evaluate when AI goes second
+        # AI goes second
         random_start = -ai_role
         for _ in range(n_eval_games):
             game = KnotGame(pd_code, random_start)
             while not game.game_over:
                 cp = game.get_current_player()
+                state = game.get_nn_input()
                 if cp == ai_role:
-                    state = game.get_canonical_form()
-                    pi, _ = nnet.predict(state)
+                    pi_cross, pi_res, value = nnet.predict(state)
+                    joint_pi = np.outer(pi_cross, pi_res).flatten()
                     valid_moves = game.get_valid_moves()
-                    pi = pi * valid_moves
-                    pi = pi / np.sum(pi) if np.sum(pi) > 1e-12 else valid_moves / np.sum(valid_moves)
-                    action = np.argmax(pi)
+                    joint_pi *= valid_moves
+                    joint_pi /= np.sum(joint_pi) if np.sum(joint_pi) > 1e-12 else 1
+                    action = np.argmax(joint_pi)
                 else:
-                    valid_moves = game.get_valid_moves()
-                    valid_actions = np.where(valid_moves == 1)[0]
+                    valid_actions = np.where(game.get_valid_moves() == 1)[0]
                     action = random.choice(valid_actions)
                 game.make_move(action)
             if game.winner == ai_role:
                 wins_second += 1
 
         return wins_first, wins_second
+
 
     def _hash_state(self, state):
         return state.tobytes()

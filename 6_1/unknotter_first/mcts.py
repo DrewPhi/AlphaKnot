@@ -19,33 +19,32 @@ class MCTS:
         s = self._hash_state(canonicalBoard)
 
         if s not in self.Ps:
-            # Leaf node
             if game.is_terminal():
                 v = game.get_winner()
                 return -v
 
             valids = game.get_valid_moves()
-            policy, v = self.nnet.predict(canonicalBoard)
-            policy = policy * valids
+            nn_input = game.get_nn_input()
+            pi_cross, pi_res, v = self.nnet.predict(nn_input)
+            policy = pi_cross[:, None] * pi_res[None, :]
+            policy = policy.flatten()
+            policy *= valids
             sum_policy = np.sum(policy)
+
             if sum_policy > 0:
                 policy /= sum_policy
             else:
-                valids_sum = np.sum(valids)
-                if valids_sum > 0:
-                    policy = valids / valids_sum
-                else:
-                    return 0  # Changed from -v to 0: avoid reinforcing garbage
+                policy = valids / np.sum(valids) if np.sum(valids) > 0 else valids
 
             if is_root:
                 alpha = config.dirichlet_alpha
                 epsilon = config.dirichlet_epsilon
-                dir_noise = np.random.dirichlet([alpha] * len(policy))
-                policy = (1 - epsilon) * policy + epsilon * dir_noise
+                noise = np.random.dirichlet([alpha] * len(policy))
+                policy = (1 - epsilon) * policy + epsilon * noise
 
             self.Ps[s] = policy
             self.Ns[s] = 0
-            return -v  # Return value predicted by network
+            return -v
 
         if game.is_terminal():
             v = game.get_winner()
@@ -55,7 +54,7 @@ class MCTS:
         best_ucb = -float('inf')
         best_a = -1
 
-        for a in range(game.get_action_size()):
+        for a in range(len(valids)):
             if valids[a]:
                 if (s, a) in self.Qsa:
                     u = self.Qsa[(s, a)] + self.c_puct * self.Ps[s][a] * \
@@ -80,6 +79,7 @@ class MCTS:
 
         self.Ns[s] += 1
         return -v
+
 
     def _hash_state(self, state):
         return state.tobytes()
