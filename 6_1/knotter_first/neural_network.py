@@ -73,6 +73,7 @@ class NNetWrapper:
         self.optimizer = optim.Adam(self.nnet.parameters(), lr=config.learning_rate)
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.nnet.to(self.device)
+        self.last_training_loss = None
 
         # Resume / load model if indicated
         if config.resumeTraining:
@@ -89,6 +90,9 @@ class NNetWrapper:
 
     def train(self, examples):
         self.nnet.train()
+        total_loss = 0
+        num_batches = 0
+
         for epoch in range(config.num_epochs):
             for state, pi, v in examples:
                 self.optimizer.zero_grad()
@@ -104,6 +108,12 @@ class NNetWrapper:
 
                 loss.backward()
                 self.optimizer.step()
+
+                total_loss += loss.item()
+                num_batches += 1
+
+        self.last_training_loss = total_loss / max(1, num_batches)
+
 
     def predict(self, state):
         self.nnet.eval()

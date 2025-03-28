@@ -22,3 +22,5 @@ require_perfect_random_win = True
 # === Optional additions ===
 dirichlet_alpha = 0.3
 dirichlet_epsilon = 0.25
+# === Promotion Policy Toggle ===
+promote_by_loss_only = True  # Set to True to mimic AlphaZero-GitHub behavior

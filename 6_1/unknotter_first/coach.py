@@ -152,6 +152,20 @@ class Coach:
         champion_net = NNetWrapper(self.game)
         champion_net.load_checkpoint(champion_path)
 
+        if config.promote_by_loss_only:
+            # Compare training loss directly
+            champ_net_loss = self.load_champion_loss()
+            cand_loss = self.nnet.last_training_loss
+            print(f"Loss comparison — Candidate: {cand_loss:.4f}, Champion: {champ_net_loss:.4f}" if champ_net_loss is not None else f"Loss comparison — Candidate: {cand_loss:.4f}, Champion: None")
+
+            if champ_net_loss is None or cand_loss < champ_net_loss:
+                self.nnet.save_checkpoint(champion_path)
+                self.save_champion_loss(cand_loss)
+                print("Candidate has lower training loss. Promoted to champion (loss-based).")
+            else:
+                print("Candidate has higher training loss. Continuing to improve it.")
+            return
+
         # Head-to-head match
         champ_wins, cand_wins = self.evaluate_head_to_head(champion_net, self.nnet, config.n_games)
         print(f"Head-to-head results (champ vs candidate): {champ_wins}-{cand_wins} out of {config.n_games} games.")
@@ -177,16 +191,17 @@ class Coach:
 
             if cand_score > champ_score:
                 self.nnet.save_checkpoint(champion_path)
+                self.save_champion_loss(self.nnet.last_training_loss)
                 print("Candidate outperformed champion in composite score. Promoted to champion.")
             else:
-                self.nnet.load_checkpoint(champion_path)
-                print("Champion remains stronger. Reverting to champion model.")
+                print("Candidate tied but underperformed in composite score. Continuing to improve it.")
         elif cand_wins > champ_wins:
             self.nnet.save_checkpoint(champion_path)
+            self.save_champion_loss(self.nnet.last_training_loss)
             print("Candidate outperformed champion. Promoted to champion.")
         else:
-            self.nnet.load_checkpoint(champion_path)
-            print("Champion remains stronger. Reverting to champion model.")
+            print("Candidate failed to outperform champion. Continuing to improve it.")
+
 
 
     def evaluate_head_to_head(self, champion_nnet, candidate_nnet, n_games):
@@ -233,6 +248,16 @@ class Coach:
                 cand_wins += 1
 
         return champ_wins, cand_wins
+    def save_champion_loss(self, loss_value):
+        with open(os.path.join('championModel', 'loss.txt'), 'w') as f:
+            f.write(str(loss_value))
+
+    def load_champion_loss(self):
+        try:
+            with open(os.path.join('championModel', 'loss.txt'), 'r') as f:
+                return float(f.read().strip())
+        except:
+            return None
 
     def evaluate_model_vs_random(self, nnet, n_eval_games=200):
         """
