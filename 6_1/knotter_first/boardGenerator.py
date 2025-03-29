@@ -12,12 +12,12 @@ class BoardGenerator:
         output_array = []
         for i in self.input_array:
             if self.isPositive(i):
-                output_array.append([i,[i[3],i[0],i[1],i[2]]])
+                output_array.append([[i[3],i[0],i[1],i[2]]])
             else:
-                output_array.append([i,[i[1],i[2],i[3],i[0]]])
+                output_array.append([[i[1],i[2],i[3],i[0]]])
         
         return output_array
-    
+        
 # Example usage on the 6_2 knot:
 if __name__ == "__main__":
     input_array = 	    	[[1,7,2,6],[3,10,4,11],[5,3,6,2],[7,1,8,12],[9,4,10,5],[11,9,12,8]]
