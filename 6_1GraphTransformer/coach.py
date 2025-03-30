@@ -26,11 +26,11 @@ class Coach:
 
         while True:
             episodeStep += 1
-            canonicalBoard = board
+            canonicalBoard, current_player_canonical = self.game.getCanonicalForm(board, curPlayer)
 
             temp = int(episodeStep < config.tempThreshold)
 
-            pi = MCTS(self.game, self.nnet, self.args).getActionProb(canonicalBoard, temp=temp)
+            pi = MCTS(self.game, self.nnet, self.args).getActionProb(canonicalBoard, current_player_canonical, temp=temp)
             sym = [(canonicalBoard, pi, curPlayer)]
             trainExamples.extend(sym)
 
@@ -50,12 +50,15 @@ class Coach:
         from arena import Arena
         import numpy as np
 
-        def nnet_player(board):
-            pi = MCTS(self.game, nnet, self.args).getActionProb(board, temp=0)
+        def nnet_player(board, player):
+            canonicalBoard, current_player = self.game.getCanonicalForm(board, player)
+            pi = MCTS(self.game, nnet, self.args).getActionProb(canonicalBoard, current_player, temp=0)
             return np.argmax(pi)
 
-        def random_player(board):
-            valids = self.game.getValidMoves(board, 1).cpu().numpy()
+
+
+        def random_player(board, player):
+            valids = self.game.getValidMoves(board, player).cpu().numpy()
             valid_actions = np.where(valids == 1)[0]
             return np.random.choice(valid_actions)
 
@@ -121,7 +124,9 @@ class Coach:
 
                 # Alternate roles fairly
                 def player_fn(nnet):
-                    return lambda x: np.argmax(MCTS(self.game, nnet, self.args).getActionProb(x, temp=0))
+                    return lambda board, player: np.argmax(MCTS(self.game, nnet, self.args)
+                                                        .getActionProb(*self.game.getCanonicalForm(board, player), temp=0))
+
 
                 arena1 = Arena(player_fn(self.nnet), player_fn(prev_nnet), self.game)
                 nwins1, pwins1, draws1 = arena1.playGames(config.arenaCompare // 2)

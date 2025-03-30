@@ -9,7 +9,7 @@ class Arena:
 
     def __init__(self, player1, player2, game, display=None):
         """
-        player1, player2: functions that take 'board' and return an action (integer).
+        player1, player2: functions that take ('board', 'currentPlayer') and return an action (integer).
         game: the game object (KnotGraphGame).
         display: optional function to render the board (not mandatory).
         """
@@ -34,9 +34,10 @@ class Arena:
                 self.display(board)
 
             if currentPlayer == 1:
-                action = self.player1(board)
+                action = self.player1(board, currentPlayer)
             else:
-                action = self.player2(board)
+                action = self.player2(board, currentPlayer)
+
 
             board, currentPlayer = self.game.getNextState(board, currentPlayer, action)
 

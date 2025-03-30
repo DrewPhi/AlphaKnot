@@ -12,7 +12,8 @@ class Args:
 def currentNetPlayer(game, nnet, board):
     from mcts import MCTS
     mctsPlayer = MCTS(game, nnet, Args())
-    pi = mctsPlayer.getActionProb(board, temp=0)
+    canonicalBoard, current_player = game.getCanonicalForm(board, 1)
+    pi = mctsPlayer.getActionProb(canonicalBoard, current_player, temp=0)
     return np.argmax(pi)
 
 def main():

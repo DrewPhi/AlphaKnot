@@ -16,8 +16,8 @@ class MCTS:
         self.Es = {}   # stores game.getGameEnded(s)
         self.Vs = {}   # stores game.getValidMoves(s)
 
-    def getActionProb(self, canonicalBoard, temp=1):
-        state = (canonicalBoard, 1)  # Player 1 always starts in canonical form
+    def getActionProb(self, canonicalBoard,current_player, temp=1):
+        state = (canonicalBoard, current_player)
 
         for _ in range(self.args.numMCTSSims):
             self.search(state[0], state[1])
