@@ -1,69 +1,37 @@
-import numpy as np
+import torch
 from knot_graph_game import KnotGraphGame
-from knot_graph_nnet import NNetWrapper
-from mcts import MCTS
-import config
+from pd_code_utils import pd_code_from_graph, isPositive
 
-class Args:
-    numMCTSSims = config.numMCTSSims
-    cpuct = config.cpuct
+def print_pd(pd, label):
+    print(f"\n🔍 {label} PD Code:")
+    for i, cr in enumerate(pd):
+        print(f"  Crossing {i}: {cr}")
 
-def random_player(game):
-    def player_fn(board):
-        valids = game.getValidMoves(board, 1).cpu().numpy()
-        valid_actions = np.where(valids == 1)[0]
-        return np.random.choice(valid_actions)
-    return player_fn
+def test_all_actions():
+    game = KnotGraphGame()
+    base_board = game.getInitBoard()
+    original_pd = pd_code_from_graph(base_board)
 
-def mcts_player(game, nnet, player_name="AI"):
-    def player_fn(board):
-        mcts = MCTS(game, nnet, Args())
-        pi = mcts.getActionProb(board, temp=0)
-        print(f"{player_name} policy π:", np.round(pi, 2))
-        return np.argmax(pi)
-    return player_fn
+    print("🧪 Testing all 12 possible actions:")
+    for action in range(12):
+        crossing_index = action // 2
+        resolution_type = action % 2  # 0 = even (type 0), 1 = odd (type 1)
 
-def run_test(game, ai_first=True):
-    print("\n==============================")
-    print("🔍 TEST: AI goes", "first" if ai_first else "second")
-    print("==============================")
+        # Run action
+        board, _ = game.getNextState(base_board, 1, action)
+        pd = pd_code_from_graph(board)
 
-    nnet = NNetWrapper(game)
-    board = game.getInitBoard()
-    curPlayer = 1
+        original_crossing = original_pd[crossing_index]
+        new_crossing = pd[crossing_index]
 
-    if ai_first:
-        players = {1: mcts_player(game, nnet, "AI"), -1: random_player(game)}
-    else:
-        players = {1: random_player(game), -1: mcts_player(game, nnet, "AI")}
+        # Check if flipping behavior matches expected type
+        flipped = new_crossing != original_crossing
+        expected_flip = resolution_type == 1  # we expect type 1 to flip
 
-    move_num = 1
-    while True:
-        print(f"\n🔁 Move {move_num} by Player {curPlayer}")
-        action = players[curPlayer](board)
-
-        board, curPlayer = game.getNextState(board, curPlayer, action)
-
-        last_player = -curPlayer  # the player who just moved
-        result = game.getGameEnded(board, last_player)
-
-        if result != 0:
-            winner = "Player 1" if result * last_player == 1 else "Player 2"
-            print("\n🏁 Game Over!")
-            print(f"Final Player (who moved last): {last_player}")
-            print(f"getGameEnded Result: {result}")
-            print(f"Winner (from Arena perspective): {winner}")
-
-            if (ai_first and winner == "Player 1") or (not ai_first and winner == "Player 2"):
-                print("✅ AI won!")
-            else:
-                print("❌ AI lost!")
-            break
-
-        move_num += 1
+        status = "✅ Correct" if flipped == expected_flip else "❌ Backwards"
+        print(f"\n🔹 Action {action}: Crossing {crossing_index} [Type {resolution_type}] → {new_crossing}")
+        print(f"    Original: {original_crossing}")
+        print(f"    Flipped? {flipped} | Expected Flip? {expected_flip} → {status}")
 
 if __name__ == "__main__":
-    game = KnotGraphGame()
-    game.getInitBoard()
-    run_test(game, ai_first=True)
-    run_test(game, ai_first=False)
+    test_all_actions()

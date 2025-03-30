@@ -1,5 +1,5 @@
 pd_codes = [
-    [[1,7,2,6],[3,10,4,11],[5,3,6,2],[7,1,8,12],[9,4,10,5],[11,9,12,8]]
+    [[2,5,3,6],[4,10,5,9],[6,11,7,12],[8,1,9,2],[10,4,11,3],[12,7,1,8]]
 ]
 
 numIters = 100  # Start with 100, scale up if needed.
@@ -14,7 +14,7 @@ num_epochs = 10
 checkpoint = './checkpoints/'
 saveIterCheckpoint = True
 load_model = False
-arenaCompare = 100
+arenaCompare = 20
 knotter_first = False
 
 resume_training = True  # or False

@@ -18,14 +18,14 @@ def main(num_games=1000):
 
     arena = Arena(player1, player2, game)
 
-    print(f"🤖 Running {num_games} random-vs-random games (Player 1 always goes first)...")
+    print(f" Running {num_games} random-vs-random games (Player 1 always goes first)...")
     one_won, two_won, draws = arena.playGames(num_games)
 
     p1_winrate = 100 * one_won / num_games
     p2_winrate = 100 * two_won / num_games
     draw_rate = 100 * draws / num_games
 
-    print("\n🎲 Random vs Random Results")
+    print("\n Random vs Random Results")
     print(f"Player 1 wins: {one_won} ({p1_winrate:.2f}%)")
     print(f"Player 2 wins: {two_won} ({p2_winrate:.2f}%)")
     print(f"Draws       : {draws} ({draw_rate:.2f}%)")

@@ -63,7 +63,7 @@ def pd_code_from_graph(graph_data):
         needs_flip = False
 
         for src, dst, strand_label, sign in graph_dict["edges"]:
-            if dst == crossing and strand_label == first_strand:
+            if src == crossing and strand_label == first_strand:
                 if sign == 2:           # flip only for positive sign
                     needs_flip = True
                 break

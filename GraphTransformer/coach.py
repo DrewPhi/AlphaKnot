@@ -42,7 +42,7 @@ class Coach:
             if r != 0:
                 return [(x[0], x[1], r*((-1)**(x[2]!=curPlayer))) for x in trainExamples]
 
-    def evaluate_against_random(self, nnet, num_games=100):
+    def evaluate_against_random(self, nnet, num_games=50):
         """
         Evaluate the given nnet against a random player separately as Player 1 and Player 2.
         Returns the AI win rates going first and second.
@@ -76,7 +76,7 @@ class Coach:
         draw_rate_p1 = (draws_p1 / num_games) * 100
         draw_rate_p2 = (draws_p2 / num_games) * 100
 
-        print("\n🎲 Evaluation vs Random Player:")
+        print("\n Evaluation vs Random Player:")
         print(f"➡️  AI going FIRST: AI wins: {ai_p1_winrate:.2f}%, Draws: {draw_rate_p1:.2f}%")
         print(f"⬅️  AI going SECOND: AI wins: {ai_p2_winrate:.2f}%, Draws: {draw_rate_p2:.2f}%\n")
 
@@ -114,7 +114,7 @@ class Coach:
                 self.nnet.save_checkpoint(os.path.join(folder, filename))
                 print(f"[Checkpoint] Saved: {filename}")
             if i == 1:
-                print('🥇 Initial iteration complete; setting current model as champion.')
+                print(' Initial iteration complete; setting current model as champion.')
                 self.nnet.save_checkpoint(os.path.join(config.checkpoint, 'best.pth.tar'))
 
             if config.arenaCompare > 0 and i > 1:
@@ -144,10 +144,10 @@ class Coach:
                 print(f'[Arena Results] New model win rate: {winRate:.2%}')
 
                 # Evaluate both models against Random
-                print("\n📌 Evaluating CURRENT CANDIDATE vs Random Player:")
+                print("\n Evaluating CURRENT CANDIDATE vs Random Player:")
                 ai_current_p1, ai_current_p2 = self.evaluate_against_random(self.nnet, num_games=100)
 
-                print("\n📌 Evaluating PREVIOUS CHAMPION vs Random Player:")
+                print("\n Evaluating PREVIOUS CHAMPION vs Random Player:")
                 ai_prev_p1, ai_prev_p2 = self.evaluate_against_random(prev_nnet, num_games=100)
 
                 current_avg = (ai_current_p1 + ai_current_p2) / 2
@@ -155,7 +155,7 @@ class Coach:
 
                 # Tie-breaking based on average random win rate
                 if winRate > config.updateThreshold:
-                    print('🎉 Accepting new model as champion (Arena winrate).')
+                    print(' Accepting new model as champion (Arena winrate).')
                     self.nnet.save_checkpoint(os.path.join(config.checkpoint, 'best.pth.tar'))
                 elif winRate == 0.5:
                     if current_avg > prev_avg:
@@ -167,14 +167,14 @@ class Coach:
                     else:
                         # Final tie-breaker: lower training loss
                         if self.nnet.latest_loss < getattr(prev_nnet, 'latest_loss', float('inf')):
-                            print('📉 Tie in all metrics — NEW model has lower training loss. Promoting.')
+                            print(' Tie in all metrics — NEW model has lower training loss. Promoting.')
                             self.nnet.save_checkpoint(os.path.join(config.checkpoint, 'best.pth.tar'))
                         else:
-                            print('📉 Tie in all metrics — PREVIOUS model has lower or equal training loss. Reverting.')
+                            print(' Tie in all metrics — PREVIOUS model has lower or equal training loss. Reverting.')
                             self.nnet.load_checkpoint(os.path.join(config.checkpoint, f'checkpoint_{i-1}.pth.tar'))
 
                 else:
-                    print('❌ Rejecting new model. Reverting to previous best.')
+                    print(' Rejecting new model. Reverting to previous best.')
                     self.nnet.load_checkpoint(os.path.join(config.checkpoint, f'checkpoint_{i-1}.pth.tar'))
 
 

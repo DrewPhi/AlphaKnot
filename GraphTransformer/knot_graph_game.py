@@ -71,7 +71,6 @@ class KnotGraphGame:
             edge_index=board.edge_index.clone(),
             edge_attr=board.edge_attr.clone()
         )
-
         # Only use 1 = positive, 2 = negative
         SIGN_POSITIVE = 1
         SIGN_NEGATIVE = 2
@@ -86,11 +85,9 @@ class KnotGraphGame:
             src, dst = new_board.edge_index[:, i]
             if src.item() == node_idx:
                 outgoing_edges.append((i, int(new_board.edge_attr[i][0])))  # (edge idx, strand label)
-
         # Step 2: Group strand labels into two consecutive pairs (with circular check)
         n_strands = int(new_board.edge_attr[:, 0].max().item())  # total strand labels
         strand_labels = sorted([strand for _, strand in outgoing_edges])
-
         # Use a greedy circular-adjacency pairing strategy
         grouped = []
         used = set()
@@ -106,18 +103,36 @@ class KnotGraphGame:
                     used.add(b)
                     break
 
-        
         if len(grouped) != 2:
             raise ValueError(f"Could not find two pairs of consecutive strands in: {strand_labels}")
 
         # Step 3: Assign signs
         pair1, pair2 = grouped
-        sign_map = {
-            pair1[0]: sign_choice,
-            pair1[1]: sign_choice,
-            pair2[0]: alt_sign,
-            pair2[1]: alt_sign
-        }
+        # Step 3: Determine which group contains the first strand
+        pd_entry = list(map(int, new_board.x[node_idx].tolist()))
+        first_strand = pd_entry[0]
+
+        if first_strand in pair1:
+            primary, secondary = pair1, pair2
+        else:
+            primary, secondary = pair2, pair1
+
+        # Step 4: Assign signs based on type
+        if action % 2 != 0:  # even = primary gets understrand
+            sign_map = {
+                primary[0]: SIGN_NEGATIVE,
+                primary[1]: SIGN_NEGATIVE,
+                secondary[0]: SIGN_POSITIVE,
+                secondary[1]: SIGN_POSITIVE,
+            }
+        else:  # odd = primary gets overstrand
+            sign_map = {
+                primary[0]: SIGN_POSITIVE,
+                primary[1]: SIGN_POSITIVE,
+                secondary[0]: SIGN_NEGATIVE,
+                secondary[1]: SIGN_NEGATIVE,
+            }
+
 
         # Step 4: Update edge_attr for outgoing edges
         for i, strand in outgoing_edges:
