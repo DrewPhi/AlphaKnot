@@ -19,6 +19,8 @@ def currentNetPlayer(game, nnet, board):
 def main():
     game = KnotGraphGame()
     game.getInitBoard()
+    game.resumeTraining = config.resume_training
+
     nnet = NNetWrapper(game)
 
     args = Args()

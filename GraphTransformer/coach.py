@@ -30,7 +30,7 @@ class Coach:
 
             temp = int(episodeStep < config.tempThreshold)
 
-            pi = MCTS(self.game, self.nnet, self.args).getActionProb(canonicalBoard, current_player_canonical, temp=temp)
+            pi = MCTS(self.game, self.nnet, self.args, add_root_noise=True).getActionProb(canonicalBoard, current_player_canonical, temp=temp)
             sym = [(canonicalBoard, pi, curPlayer)]
             trainExamples.extend(sym)
 
@@ -157,13 +157,22 @@ class Coach:
                 if winRate > config.updateThreshold:
                     print('🎉 Accepting new model as champion (Arena winrate).')
                     self.nnet.save_checkpoint(os.path.join(config.checkpoint, 'best.pth.tar'))
-                elif winRate == 0.5:  # Exactly tied, use random win rate as tiebreaker
+                elif winRate == 0.5:
                     if current_avg > prev_avg:
                         print('⚖️ Arena tied; choosing NEW model based on higher average random win rate.')
                         self.nnet.save_checkpoint(os.path.join(config.checkpoint, 'best.pth.tar'))
-                    else:
+                    elif current_avg < prev_avg:
                         print('⚖️ Arena tied; choosing PREVIOUS model based on higher average random win rate.')
                         self.nnet.load_checkpoint(os.path.join(config.checkpoint, f'checkpoint_{i-1}.pth.tar'))
+                    else:
+                        # Final tie-breaker: lower training loss
+                        if self.nnet.latest_loss < getattr(prev_nnet, 'latest_loss', float('inf')):
+                            print('📉 Tie in all metrics — NEW model has lower training loss. Promoting.')
+                            self.nnet.save_checkpoint(os.path.join(config.checkpoint, 'best.pth.tar'))
+                        else:
+                            print('📉 Tie in all metrics — PREVIOUS model has lower or equal training loss. Reverting.')
+                            self.nnet.load_checkpoint(os.path.join(config.checkpoint, f'checkpoint_{i-1}.pth.tar'))
+
                 else:
                     print('❌ Rejecting new model. Reverting to previous best.')
                     self.nnet.load_checkpoint(os.path.join(config.checkpoint, f'checkpoint_{i-1}.pth.tar'))

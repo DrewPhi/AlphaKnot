@@ -14,5 +14,7 @@ num_epochs = 10
 checkpoint = './checkpoints/'
 saveIterCheckpoint = True
 load_model = False
-arenaCompare = 20
+arenaCompare = 100
 knotter_first = False
+
+resume_training = True  # or False

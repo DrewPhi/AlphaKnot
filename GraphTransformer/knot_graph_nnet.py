@@ -6,7 +6,7 @@ import torch.optim as optim
 from torch_geometric.data import Data
 from torch_geometric.nn import TransformerConv, global_mean_pool
 import knot_graph_game as KnotGraphGame
-
+import config
 class KnotGraphNet(nn.Module):
     def __init__(self, game, hidden_dim=64, num_heads=4, num_layers=3, dropout=0.0):
         """
@@ -159,7 +159,7 @@ class NNetWrapper:
 
         # If desired, load pre-existing model
         if hasattr(game, "resumeTraining") and game.resumeTraining:
-            checkpoint_path = os.path.join('championModel', 'best.pth.tar')
+            checkpoint_path = os.path.join(config.checkpoint, 'best.pth.tar')
             if os.path.isfile(checkpoint_path):
                 print(f"Resuming training from {checkpoint_path}")
                 self.load_checkpoint(checkpoint_path)
@@ -191,11 +191,16 @@ class NNetWrapper:
         :param examples: list of (state, pi, v) tuples, where `state` is a game state or PD code,
                          `pi` is the target policy vector, and `v` is the target value.
         """
+        self.latest_loss = 0  # will store the average loss over the epoch
+
         self.nnet.train()
         # Number of training epochs is expected to be provided in a config (fallback to 1 if not)
         epochs = getattr(__import__('config'), 'num_epochs', 1)
         for epoch in range(epochs):
+            total_loss = 0
+            count = 0
             for state, pi, v in examples:
+                
                 # Prepare graph data from state
                 # If state is a game object, extract its PD code; otherwise assume it's a PD code structure
                 pd_code = getattr(state, 'pd_code', state)
@@ -214,10 +219,13 @@ class NNetWrapper:
                 l_pi = -torch.sum(target_pi * log_probs)                      # cross-entropy loss
                 l_v = F.mse_loss(out_v.view(-1), target_v.view(-1))           # mean squared error loss
                 loss = l_pi + l_v
-                # Backpropagation
+                total_loss += loss.item()
+                count += 1                # Backpropagation
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
+                self.latest_loss = total_loss / count if count > 0 else float('inf')
+
     def predict(self, state):
         self.nnet.eval()
 
@@ -240,17 +248,25 @@ class NNetWrapper:
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         torch.save({
             'state_dict': self.nnet.state_dict(),
-            'optimizer': self.optimizer.state_dict()
+            'optimizer': self.optimizer.state_dict(),
+            'latest_loss': self.latest_loss
         }, filepath)
+
         print(f"Checkpoint saved at {filepath}")
 
     def load_checkpoint(self, filepath):
         """Load model weights and optimizer state from disk."""
         if not os.path.isfile(filepath):
             raise FileNotFoundError(f"No checkpoint found at {filepath}")
+
         checkpoint = torch.load(filepath, map_location=self.device)
+
         self.nnet.load_state_dict(checkpoint['state_dict'])
         if 'optimizer' in checkpoint:
             self.optimizer.load_state_dict(checkpoint['optimizer'])
+
+        self.latest_loss = checkpoint.get('latest_loss', float('inf'))
         self.nnet.to(self.device)
+
         print(f"Loaded checkpoint from {filepath}")
+

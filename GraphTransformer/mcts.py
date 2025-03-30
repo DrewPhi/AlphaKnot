@@ -3,10 +3,11 @@ import numpy as np
 import torch
 
 class MCTS:
-    def __init__(self, game, nnet, args):
+    def __init__(self, game, nnet, args, add_root_noise=False):
         self.game = game
         self.nnet = nnet
         self.args = args
+        self.add_root_noise = add_root_noise
 
         self.Qsa = {}  # stores Q values for (s,a)
         self.Nsa = {}  # stores visit counts for (s,a)
@@ -57,6 +58,11 @@ class MCTS:
             else:
                 pi = pi + valids
                 pi /= np.sum(pi)
+            if self.add_root_noise:
+                epsilon = 0.25
+                alpha = 0.3  # can be tuned
+                noise = np.random.dirichlet([alpha] * len(pi))
+                pi = (1 - epsilon) * pi + epsilon * noise
 
             self.Ps[s] = pi
             self.Vs[s] = valids
