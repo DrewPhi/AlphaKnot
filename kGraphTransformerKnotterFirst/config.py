@@ -15,7 +15,7 @@ checkpoint = './checkpoints/'
 saveIterCheckpoint = True
 load_model = False
 arenaCompare = 20
-knotter_first = True
+knotter_first = False
 
-resume_training = True  # or False
+resume_training = False  # or False
 random_play_fraction = 0  # 25% of self-play games use a random player
