@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch_geometric.data import Data
 from torch_geometric.nn import TransformerConv, global_mean_pool
-import knot_graph_game as KnotGraphGame
+from knot_graph_game import KnotGraphGame
 import config
 import torch_geometric
 class KnotGraphNet(nn.Module):
