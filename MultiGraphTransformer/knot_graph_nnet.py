@@ -154,6 +154,7 @@ class NNetWrapper:
         self.action_size = game.getActionSize()
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.nnet.to(self.device)
+        print("[Device]", self.device)
         self.optimizer = optim.Adam(self.nnet.parameters(), lr=getattr(game, 'learning_rate', 0.001))
         # Note: `game.learning_rate` is used if available; otherwise default 0.001 (config can override).
 
