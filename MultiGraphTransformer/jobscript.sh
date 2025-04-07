@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=knot_gpu
 #SBATCH --partition=gpu
-#SBATCH --gpus=a100:1          # Or gtx1080ti:1 if that’s available
+#SBATCH --gpus=a100:1
 #SBATCH --cpus-per-gpu=4
 #SBATCH --mem=32G
 #SBATCH --time=08:00:00
@@ -9,7 +9,7 @@
 
 module purge
 module load miniconda
-conda activate your_env_name  # Replace with your actual conda environment
+conda activate knot_env  # This is where you installed Sage via conda
 
-cd /path/to/your/code         # Replace with your actual path
-python main.py
+# Use Sage's Python to run your script
+sage -python main.py
