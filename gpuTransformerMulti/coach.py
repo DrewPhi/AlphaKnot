@@ -14,6 +14,8 @@ from knot_graph_nnet import NNetWrapper
 def _execute_single_episode(args):
     game_cls, nnet_class, checkpoint_path, coach_args, rank, ep_num = args
     game = game_cls()
+    game.getInitBoard()
+
     nnet = nnet_class(game)
     if checkpoint_path and os.path.isfile(checkpoint_path):
         nnet.load_checkpoint(checkpoint_path)
