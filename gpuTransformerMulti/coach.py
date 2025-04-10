@@ -8,7 +8,7 @@ from mcts import MCTS
 import time
 import torch
 from multiprocessing import Pool, cpu_count
-import knot_graph_game as KnotGraphGame
+from knot_graph_game import KnotGraphGame
 from knot_graph_nnet import NNetWrapper
 
 def _execute_single_episode(args):
