@@ -7,6 +7,22 @@ from arena import Arena
 from mcts import MCTS
 import time
 import torch
+from multiprocessing import Pool, cpu_count
+import knot_graph_game as KnotGraphGame
+from knot_graph_nnet import NNetWrapper
+
+def _execute_single_episode(args):
+    game_cls, nnet_class, checkpoint_path, coach_args, rank, ep_num = args
+    game = game_cls()
+    nnet = nnet_class(game)
+    if checkpoint_path and os.path.isfile(checkpoint_path):
+        nnet.load_checkpoint(checkpoint_path)
+    coach = Coach(game, nnet, coach_args)
+    start = time.time()
+    result = coach.executeEpisode()
+    print(f"[CPU {rank}] Self-play Episode {ep_num} completed in {time.time() - start:.2f}s")
+    return result
+
 class Coach:
     def __init__(self, game, nnet, args):
         self.game = game
@@ -30,10 +46,9 @@ class Coach:
             episodeStep += 1
             canonicalBoard, current_player = self.game.getCanonicalForm(board, curPlayer)
 
-            # 🧠 Mixed self-play
             if np.random.rand() < config.random_play_fraction:
                 valids = self.game.getValidMoves(canonicalBoard, current_player).cpu().numpy()
-                action_probs = valids / np.sum(valids)  # Uniform over valid moves
+                action_probs = valids / np.sum(valids)
             else:
                 mcts = MCTS(self.game, self.nnet, self.args, add_root_noise=True)
                 action_probs = mcts.getActionProb(canonicalBoard, current_player, temp=1)
@@ -46,6 +61,7 @@ class Coach:
             r = self.game.getGameEnded(board, curPlayer)
             if r != 0:
                 return [(x[0], x[2], r * ((-1) ** (x[1] != curPlayer))) for x in trainExamples]
+
 
 
     def evaluate_against_random(self, nnet, num_games=50):
@@ -97,14 +113,15 @@ class Coach:
                 print(f'\n{"=" * 30}\n STARTING ITERATION {i}/{config.numIters}\n{"=" * 30}')
             iteration_start = time.time()
 
-            iterationTrainExamples = []
-            for ep in range(1, config.numEps + 1):
-                ep_start = time.time()
-                iterationTrainExamples += self.executeEpisode()
-                ep_time = time.time() - ep_start
-                if self.rank == 0:
-                    print(f'[GPU {self.rank}] Self-play Episode {ep}/{config.numEps} completed in {ep_time:.2f}s')
+            # ⚡ Parallel self-play using multiprocessing
+            num_workers = min(cpu_count(), config.numEps)
+            print(f"[CPU] Launching {config.numEps} self-play episodes using {num_workers} workers.")
+            with Pool(processes=num_workers) as pool:
+                checkpoint = os.path.join(config.checkpoint, 'best.pth.tar')
+                args = [(KnotGraphGame, NNetWrapper, checkpoint, self.args, j % num_workers, j + 1) for j in range(config.numEps)]
+                results = pool.map(_execute_single_episode, args)
 
+            iterationTrainExamples = [item for sublist in results for item in sublist]
             self.trainExamplesHistory.extend(iterationTrainExamples)
 
             if self.rank == 0:
@@ -112,7 +129,6 @@ class Coach:
                 random.shuffle(iterationTrainExamples)
                 print("[Training] Started neural network training.")
 
-            # Synchronize before training (important for DDP)
             if torch.distributed.is_initialized():
                 torch.distributed.barrier()
 
@@ -196,8 +212,9 @@ class Coach:
                 total_elapsed = (time.time() - total_start) / 60
                 est_remaining = (total_elapsed / i) * (config.numIters - i)
                 print(f"[Iteration] Iteration time: {iteration_time:.2f} minutes | "
-                    f"Total elapsed: {total_elapsed:.2f} minutes | "
-                    f"Estimated remaining: {est_remaining:.2f} minutes")
+                      f"Total elapsed: {total_elapsed:.2f} minutes | "
+                      f"Estimated remaining: {est_remaining:.2f} minutes")
+
 
 
 
