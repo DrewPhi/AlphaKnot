@@ -27,10 +27,16 @@ def main():
         rank = dist.get_rank()                # global rank of this process
         local_rank = int(os.environ.get('LOCAL_RANK', rank))
         torch.cuda.set_device(local_rank)     # use GPU corresponding to this process
+        print(f"[GPU {rank}] Starting on device: {torch.cuda.get_device_name(local_rank)} "
+          f"({torch.cuda.get_device_properties(local_rank).total_memory / 1e9:.2f} GB)")
     else:
         rank = 0
         local_rank = 0
-
+        if torch.cuda.is_available():
+            print(f"[GPU 0] Single-GPU mode: {torch.cuda.get_device_name(0)} "
+              f"({torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB)")
+        else:
+            print("[CPU] CUDA not available, using CPU mode")
     game = KnotGraphGame()
     game.getInitBoard()
     nnet = NNetWrapper(game)
