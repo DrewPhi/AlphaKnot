@@ -32,6 +32,7 @@ def main():
         local_rank = 0
 
     game = KnotGraphGame()
+    game.getInitBoard()
     nnet = NNetWrapper(game)
     # Move model to this process's device and wrap with DDP if using multi-GPU
     if world_size > 1:
