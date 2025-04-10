@@ -6,17 +6,19 @@ import config
 from arena import Arena
 from mcts import MCTS
 import time
-
+import torch
 class Coach:
     def __init__(self, game, nnet, args):
         self.game = game
         self.nnet = nnet
         self.args = args
 
+        self.rank = int(os.environ.get("RANK", "0"))
         self.trainExamplesHistory = deque([], maxlen=config.maxlenOfQueue)
 
         if config.load_model:
             self.loadTrainExamples()
+
 
     def executeEpisode(self):
         trainExamples = []
@@ -90,9 +92,9 @@ class Coach:
 
     def learn(self):
         total_start = time.time()
-        for i in range(1, config.numIters+1):
-            print(f'\n{"="*30}\n STARTING ITERATION {i}/{config.numIters}\n{"="*30}')
-            
+        for i in range(1, config.numIters + 1):
+            if self.rank == 0:
+                print(f'\n{"=" * 30}\n STARTING ITERATION {i}/{config.numIters}\n{"=" * 30}')
             iteration_start = time.time()
 
             iterationTrainExamples = []
@@ -100,36 +102,47 @@ class Coach:
                 ep_start = time.time()
                 iterationTrainExamples += self.executeEpisode()
                 ep_time = time.time() - ep_start
-                print(f'[Self-play] Episode {ep}/{config.numEps} completed in {ep_time:.2f}s')
+                if self.rank == 0:
+                    print(f'[Self-play] Episode {ep}/{config.numEps} completed in {ep_time:.2f}s')
 
             self.trainExamplesHistory.extend(iterationTrainExamples)
-            self.saveTrainExamples(i-1)
 
-            random.shuffle(iterationTrainExamples)
-            print("[Training] Started neural network training.")
+            if self.rank == 0:
+                self.saveTrainExamples(i - 1)
+                random.shuffle(iterationTrainExamples)
+                print("[Training] Started neural network training.")
+
+            # Synchronize before training (important for DDP)
+            if torch.distributed.is_initialized():
+                torch.distributed.barrier()
+
             train_start = time.time()
-            self.nnet.train(iterationTrainExamples)
+            if hasattr(self.nnet.nnet, "module"):
+                self.nnet.nnet.module.train(iterationTrainExamples)
+            else:
+                self.nnet.train(iterationTrainExamples)
             train_time = time.time() - train_start
-            print(f"[Training] Completed training in {train_time:.2f}s")
 
-            if config.saveIterCheckpoint:
-                folder = config.checkpoint
-                filename = f'checkpoint_{i}.pth.tar'
-                self.nnet.save_checkpoint(os.path.join(folder, filename))
-                print(f"[Checkpoint] Saved: {filename}")
-            if i == 1:
-                print('Initial iteration complete; setting current model as champion.')
-                self.nnet.save_checkpoint(os.path.join(config.checkpoint, 'best.pth.tar'))
+            if self.rank == 0:
+                print(f"[Training] Completed training in {train_time:.2f}s")
 
-            if config.arenaCompare > 0 and i > 1:
+                if config.saveIterCheckpoint:
+                    folder = config.checkpoint
+                    filename = f'checkpoint_{i}.pth.tar'
+                    self.nnet.save_checkpoint(os.path.join(folder, filename))
+                    print(f"[Checkpoint] Saved: {filename}")
+                if i == 1:
+                    print('Initial iteration complete; setting current model as champion.')
+                    self.nnet.save_checkpoint(os.path.join(config.checkpoint, 'best.pth.tar'))
+
+            if config.arenaCompare > 0 and i > 1 and self.rank == 0:
                 print("[Arena] Evaluating against previous model...")
                 prev_nnet = self.nnet.__class__(self.game)
-                prev_nnet.load_checkpoint(os.path.join(config.checkpoint, f'checkpoint_{i-1}.pth.tar'))
+                prev_nnet.load_checkpoint(os.path.join(config.checkpoint, f'checkpoint_{i - 1}.pth.tar'))
 
-                # Alternate roles fairly.
                 def player_fn(nnet):
                     return lambda board, player: np.argmax(MCTS(self.game, nnet, self.args)
-                                                    .getActionProb(*self.game.getCanonicalForm(board, player), temp=0))
+                                                        .getActionProb(*self.game.getCanonicalForm(board, player), temp=0))
 
                 arena1 = Arena(player_fn(self.nnet), player_fn(prev_nnet), self.game)
                 nwins1, pwins1, draws1 = arena1.playGames(config.arenaCompare // 2)
@@ -141,21 +154,18 @@ class Coach:
                 pwins = pwins1 + pwins2
                 draws = draws1 + draws2
 
-                # Compute head-to-head win rate from player1's perspective.
                 winRate = float(nwins) / (nwins + pwins) if (nwins + pwins) else 0
 
                 print(f'[Arena Results] New model wins: {nwins}, Previous model wins: {pwins}, Draws: {draws}')
                 print(f'[Arena Results] New model win rate: {winRate:.2%}')
 
-                # Head-to-head decision:
                 if winRate > 0.5:
                     print('New model wins head-to-head. Accepting new model as champion.')
                     self.nnet.save_checkpoint(os.path.join(config.checkpoint, 'best.pth.tar'))
                 elif winRate < 0.5:
                     print('Previous model wins head-to-head. Reverting to previous model.')
-                    self.nnet.load_checkpoint(os.path.join(config.checkpoint, f'checkpoint_{i-1}.pth.tar'))
+                    self.nnet.load_checkpoint(os.path.join(config.checkpoint, f'checkpoint_{i - 1}.pth.tar'))
                 else:
-                    # If head-to-head is tied, evaluate both models against Random Player.
                     print("Head-to-head tied. Evaluating both models against Random Player...")
                     print("\nEvaluating CURRENT CANDIDATE vs Random Player:")
                     ai_current_p1, ai_current_p2 = self.evaluate_against_random(self.nnet, num_games=100)
@@ -171,23 +181,24 @@ class Coach:
                         self.nnet.save_checkpoint(os.path.join(config.checkpoint, 'best.pth.tar'))
                     elif current_avg < prev_avg:
                         print('Random evaluation: Previous model wins. Reverting to previous model.')
-                        self.nnet.load_checkpoint(os.path.join(config.checkpoint, f'checkpoint_{i-1}.pth.tar'))
+                        self.nnet.load_checkpoint(os.path.join(config.checkpoint, f'checkpoint_{i - 1}.pth.tar'))
                     else:
-                        # Final tie-breaker: compare training loss.
                         print('Random evaluation tied. Comparing training loss as final tie-breaker.')
                         if self.nnet.latest_loss < getattr(prev_nnet, 'latest_loss', float('inf')):
                             print('New model has lower training loss. Accepting new model.')
                             self.nnet.save_checkpoint(os.path.join(config.checkpoint, 'best.pth.tar'))
                         else:
                             print('Previous model has lower or equal training loss. Reverting to previous model.')
-                            self.nnet.load_checkpoint(os.path.join(config.checkpoint, f'checkpoint_{i-1}.pth.tar'))
+                            self.nnet.load_checkpoint(os.path.join(config.checkpoint, f'checkpoint_{i - 1}.pth.tar'))
 
-            iteration_time = (time.time() - iteration_start)/60
-            total_elapsed = (time.time() - total_start)/60
-            est_remaining = (total_elapsed / i) * (config.numIters - i)
-            print(f"[Iteration] Iteration time: {iteration_time:.2f} minutes | "
-                f"Total elapsed: {total_elapsed:.2f} minutes | "
-                f"Estimated remaining: {est_remaining:.2f} minutes")
+            if self.rank == 0:
+                iteration_time = (time.time() - iteration_start) / 60
+                total_elapsed = (time.time() - total_start) / 60
+                est_remaining = (total_elapsed / i) * (config.numIters - i)
+                print(f"[Iteration] Iteration time: {iteration_time:.2f} minutes | "
+                    f"Total elapsed: {total_elapsed:.2f} minutes | "
+                    f"Estimated remaining: {est_remaining:.2f} minutes")
+
 
 
 
