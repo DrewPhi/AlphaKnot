@@ -33,3 +33,4 @@ knotter_first = True
 
 resume_training = True  # or False
 random_play_fraction = 0  # 25% of self-play games use a random player
+use_cpu_in_selfplay = True
