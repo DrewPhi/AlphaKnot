@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=alphaknot_ddp
 #SBATCH --partition=gpu
-#SBATCH --gpus=a100:8             # Request 8 A100 GPUs
+#SBATCH --gpus=8             # Request 8 
 #SBATCH --cpus-per-gpu=4          # Number of CPU cores per GPU
 #SBATCH --mem=128G                # Adjust as needed
 #SBATCH --time=24:00:00           # Wall time (adjustable)
