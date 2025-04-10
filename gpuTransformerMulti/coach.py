@@ -103,7 +103,7 @@ class Coach:
                 iterationTrainExamples += self.executeEpisode()
                 ep_time = time.time() - ep_start
                 if self.rank == 0:
-                    print(f'[Self-play] Episode {ep}/{config.numEps} completed in {ep_time:.2f}s')
+                    print(f'[GPU {self.rank}] Self-play Episode {ep}/{config.numEps} completed in {ep_time:.2f}s')
 
             self.trainExamplesHistory.extend(iterationTrainExamples)
 
