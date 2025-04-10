@@ -8,6 +8,7 @@ from mcts import MCTS
 import os, torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
+import multiprocessing as mp
 
 class Args:
     numMCTSSims = config.numMCTSSims
@@ -59,4 +60,5 @@ def main():
         dist.destroy_process_group()
 
 if __name__ == "__main__":
+    mp.set_start_method("spawn", force=True)
     main()
