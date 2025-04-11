@@ -154,14 +154,14 @@ class Coach:
         with ctx.Pool() as pool:
             results_first = pool.starmap(
                 run_against_random,
-                [(KnotGraphGame.KnotGraphGame, model_path, self.args, True) for _ in range(num_games)]
+                [(KnotGraphGame, model_path, self.args, True) for _ in range(num_games)]
             )
 
         print("[Arena] Parallel evaluation: AI as Player 2...")
         with ctx.Pool() as pool:
             results_second = pool.starmap(
                 run_against_random,
-                [(KnotGraphGame.KnotGraphGame, model_path, self.args, False) for _ in range(num_games)]
+                [(KnotGraphGame, model_path, self.args, False) for _ in range(num_games)]
             )
 
         ai_p1_wins = results_first.count(1)
