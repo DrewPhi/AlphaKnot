@@ -189,7 +189,7 @@ class Coach:
                     filename = f'checkpoint_{i}.pth.tar'
                     self.nnet.save_checkpoint(os.path.join(folder, filename))
                     print(f"[Checkpoint] Saved: {filename}")
-                if i == 1 and not self.resumed_training:
+                if i == 1 and not config.resume_training:
                     print('Initial iteration complete; setting current model as champion.')
                     self.nnet.save_checkpoint(os.path.join(config.checkpoint, 'best.pth.tar'))
 
