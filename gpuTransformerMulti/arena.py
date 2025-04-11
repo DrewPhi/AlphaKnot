@@ -7,9 +7,9 @@ def run_single_game(game_class, nnet1_path, nnet2_path, args):
     from knot_graph_nnet import NNetWrapper
     from mcts import MCTS
     import torch
-    import numpy as np
 
     game = game_class()
+    game.getInitBoard() 
 
     nnet1 = NNetWrapper(game, device="cuda" if torch.cuda.is_available() else "cpu")
     nnet1.load_checkpoint(nnet1_path)
@@ -35,7 +35,6 @@ def run_single_game(game_class, nnet1_path, nnet2_path, args):
         result = game.getGameEnded(board, currentPlayer)
         if result != 0:
             return int(result * currentPlayer)
-
 
 class Arena:
     def __init__(self, nnet1_path, nnet2_path, game_class, args):
