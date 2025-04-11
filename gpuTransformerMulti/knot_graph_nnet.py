@@ -132,17 +132,17 @@ class KnotGraphNet(nn.Module):
 
 
 class NNetWrapper:
-    def __init__(self, game, hidden_dim=64, num_heads=8, num_layers=6, dropout=0.1):
+    def __init__(self, game, hidden_dim=64, num_heads=8, num_layers=6, dropout=0.1, device=None):
         """
         Wrapper for the KnotGraphNet to interface with AlphaZero-General training.
         """
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device(device if device else ('cuda' if torch.cuda.is_available() else 'cpu'))
         self.model = KnotGraphNet(game, hidden_dim, num_heads, num_layers, dropout).to(self.device)
         self.action_size = game.getActionSize()
         self.optimizer = optim.Adam(self.model.parameters(), lr=getattr(game, 'learning_rate', 0.001))
         print("[Device]", self.device)
 
-        # Load checkpoint if requested
+        # Optional: resume training or load existing model
         if hasattr(game, "resumeTraining") and game.resumeTraining:
             checkpoint_path = os.path.join(config.checkpoint, 'best.pth.tar')
             if os.path.isfile(checkpoint_path):
@@ -154,7 +154,7 @@ class NNetWrapper:
                 print(f"Loading model from {load_path}")
                 self.load_checkpoint(load_path)
 
-        # Precompute mapping
+        # Optional: precompute PD structure mappings
         self.initial_pd_code = game.initial_pd_code
         self.num_nodes = len(game.initial_pd_code)
         self.label_to_nodes = {}
@@ -172,7 +172,6 @@ class NNetWrapper:
         self.latest_loss = 0
         self.model.train()
         epochs = getattr(config, 'num_epochs', 1)
-
         for epoch in range(epochs):
             total_loss = 0
             count = 0
@@ -181,8 +180,8 @@ class NNetWrapper:
                     data = state
                 else:
                     data = KnotGraphGame.KnotGraphGame().pd_code_to_graph_data(state)
-
                 data = data.to(self.device)
+
                 target_pi = torch.tensor(pi, dtype=torch.float32).unsqueeze(0).to(self.device)
                 target_v = torch.tensor([v], dtype=torch.float32).to(self.device)
 
@@ -192,12 +191,11 @@ class NNetWrapper:
                 l_v = F.mse_loss(out_v.view(-1), target_v.view(-1))
                 loss = l_pi + l_v
 
+                total_loss += loss.item()
+                count += 1
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
-
-                total_loss += loss.item()
-                count += 1
 
             self.latest_loss = total_loss / count if count > 0 else float('inf')
 
@@ -207,8 +205,8 @@ class NNetWrapper:
             data = state
         else:
             data = KnotGraphGame.KnotGraphGame().pd_code_to_graph_data(state)
-
         data = data.to(self.device)
+
         with torch.no_grad():
             out_pi, out_v = self.model(data)
             pi_probs = F.softmax(out_pi, dim=1).cpu().numpy()[0]
@@ -220,7 +218,7 @@ class NNetWrapper:
         torch.save({
             'state_dict': self.model.state_dict(),
             'optimizer': self.optimizer.state_dict(),
-            'latest_loss': getattr(self, 'latest_loss', float('inf'))
+            'latest_loss': self.latest_loss
         }, filepath)
         print(f"Checkpoint saved at {filepath}")
 
