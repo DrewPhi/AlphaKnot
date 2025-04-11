@@ -29,19 +29,13 @@ def _init_worker(checkpoint_path, args):
     return Coach(game, nnet, args)
 
 
-def _execute_single_episode(args):
-    game_cls, nnet_class, checkpoint_path, coach_args, rank, ep_num = args
-    game = game_cls()
-    game.getInitBoard()
 
-    nnet = nnet_class(game)
-    if checkpoint_path and os.path.isfile(checkpoint_path):
-        nnet.load_checkpoint(checkpoint_path)
-    coach = Coach(game, nnet, coach_args)
-    start = time.time()
-    result = coach.executeEpisode()
-    print(f"[CPU {rank}] Self-play Episode {ep_num} completed in {time.time() - start:.2f}s")
-    return result
+def make_player_fn(nnet, game, args):
+    def player(board, player_id):
+        canonicalBoard, current_player = game.getCanonicalForm(board, player_id)
+        pi = MCTS(game, nnet, args).getActionProb(canonicalBoard, current_player, temp=0)
+        return np.argmax(pi)
+    return player
 
 class Coach:
     def __init__(self, game, nnet, args):
@@ -197,17 +191,19 @@ class Coach:
             if config.arenaCompare > 0 and i > 1 and self.rank == 0:
                 print("[Arena] Evaluating against previous model...")
                 prev_nnet = self.nnet.__class__(self.game)
-                prev_nnet.load_checkpoint(os.path.join(config.checkpoint, f'checkpoint_{i - 1}.pth.tar'))
+                prev_nnet.load_checkpoint(os.path.join(config.checkpoint, 'best.pth.tar'))
 
-                def player_fn(nnet):
-                    return lambda board, player: np.argmax(MCTS(self.game, nnet, self.args)
-                                                            .getActionProb(*self.game.getCanonicalForm(board, player), temp=0))
 
-                arena1 = Arena(player_fn(self.nnet), player_fn(prev_nnet), self.game)
+
+                p1 = make_player_fn(self.nnet, self.game, self.args)
+                p2 = make_player_fn(prev_nnet, self.game, self.args)
+
+                arena1 = Arena(p1, p2, self.game)
                 nwins1, pwins1, draws1 = arena1.playGames_parallel(num_games=config.arenaCompare // 2)
 
-                arena2 = Arena(player_fn(prev_nnet), player_fn(self.nnet), self.game)
+                arena2 = Arena(p2, p1, self.game)
                 pwins2, nwins2, draws2 = arena2.playGames_parallel(num_games=config.arenaCompare // 2)
+
 
 
                 nwins = nwins1 + nwins2
