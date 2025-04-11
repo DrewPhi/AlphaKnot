@@ -28,6 +28,40 @@ def _init_worker(checkpoint_path, args):
         nnet.load_checkpoint(checkpoint_path)
     return Coach(game, nnet, args)
 
+def run_against_random(game_class, model_path, args, as_first_player):
+    from knot_graph_game import KnotGraphGame
+    from knot_graph_nnet import NNetWrapper
+    from mcts import MCTS
+    import torch
+    import numpy as np
+    import random
+
+    game = game_class()
+    game.getInitBoard()
+
+    nnet = NNetWrapper(game, device="cuda" if torch.cuda.is_available() else "cpu")
+    nnet.load_checkpoint(model_path)
+
+    def nnet_player(board, player):
+        canonicalBoard, current_player = game.getCanonicalForm(board, player)
+        pi = MCTS(game, nnet, args).getActionProb(canonicalBoard, current_player, temp=0)
+        return np.argmax(pi)
+
+    def random_player(board, player):
+        valids = game.getValidMoves(board, player).cpu().numpy()
+        valid_actions = np.where(valids == 1)[0]
+        return random.choice(valid_actions)
+
+    player1, player2 = (nnet_player, random_player) if as_first_player else (random_player, nnet_player)
+
+    board = game.getInitBoard()
+    curPlayer = 1
+    while True:
+        action = player1(board, curPlayer) if curPlayer == 1 else player2(board, curPlayer)
+        board, curPlayer = game.getNextState(board, curPlayer, action)
+        result = game.getGameEnded(board, curPlayer)
+        if result != 0:
+            return int(result * curPlayer)
 
 
 class PlayerFn:
@@ -113,44 +147,6 @@ class Coach:
 
 
     def evaluate_against_random_model_path(self, model_path, num_games=50):
-        """
-        Evaluate a model (given by checkpoint path) against a random player using Arena parallel eval.
-        """
-        def run_against_random(game_class, model_path, args, as_first_player):
-            from knot_graph_game import KnotGraphGame
-            from knot_graph_nnet import NNetWrapper
-            from mcts import MCTS
-            import torch
-            import numpy as np
-            import random
-
-            game = game_class()
-            game.getInitBoard()
-
-            nnet = NNetWrapper(game, device="cuda" if torch.cuda.is_available() else "cpu")
-            nnet.load_checkpoint(model_path)
-
-            def nnet_player(board, player):
-                canonicalBoard, current_player = game.getCanonicalForm(board, player)
-                pi = MCTS(game, nnet, args).getActionProb(canonicalBoard, current_player, temp=0)
-                return np.argmax(pi)
-
-            def random_player(board, player):
-                valids = game.getValidMoves(board, player).cpu().numpy()
-                valid_actions = np.where(valids == 1)[0]
-                return random.choice(valid_actions)
-
-            player1, player2 = (nnet_player, random_player) if as_first_player else (random_player, nnet_player)
-
-            board = game.getInitBoard()
-            curPlayer = 1
-            while True:
-                action = player1(board, curPlayer) if curPlayer == 1 else player2(board, curPlayer)
-                board, curPlayer = game.getNextState(board, curPlayer, action)
-                result = game.getGameEnded(board, curPlayer)
-                if result != 0:
-                    return int(result * curPlayer)
-
         import multiprocessing as mp
         ctx = mp.get_context("spawn")
 
@@ -158,14 +154,14 @@ class Coach:
         with ctx.Pool() as pool:
             results_first = pool.starmap(
                 run_against_random,
-                [(KnotGraphGame, model_path, self.args, True) for _ in range(num_games)]
+                [(KnotGraphGame.KnotGraphGame, model_path, self.args, True) for _ in range(num_games)]
             )
 
         print("[Arena] Parallel evaluation: AI as Player 2...")
         with ctx.Pool() as pool:
             results_second = pool.starmap(
                 run_against_random,
-                [(KnotGraphGame, model_path, self.args, False) for _ in range(num_games)]
+                [(KnotGraphGame.KnotGraphGame, model_path, self.args, False) for _ in range(num_games)]
             )
 
         ai_p1_wins = results_first.count(1)
@@ -179,6 +175,7 @@ class Coach:
         print(f"⬅️  AI SECOND: {ai_p2_winrate:.2f}% wins")
 
         return ai_p1_winrate, ai_p2_winrate
+
 
 
 
