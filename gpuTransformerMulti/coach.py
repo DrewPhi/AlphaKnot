@@ -189,9 +189,10 @@ class Coach:
                     filename = f'checkpoint_{i}.pth.tar'
                     self.nnet.save_checkpoint(os.path.join(folder, filename))
                     print(f"[Checkpoint] Saved: {filename}")
-                if i == 1:
+                if i == 1 and not self.resumed_training:
                     print('Initial iteration complete; setting current model as champion.')
                     self.nnet.save_checkpoint(os.path.join(config.checkpoint, 'best.pth.tar'))
+
 
             if config.arenaCompare > 0 and i > 1 and self.rank == 0:
                 print("[Arena] Evaluating against previous model...")

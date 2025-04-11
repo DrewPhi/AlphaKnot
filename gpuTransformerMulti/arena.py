@@ -1,51 +1,50 @@
 # arena.py
 import numpy as np
 import multiprocessing as mp
+from multiprocessing import get_context
 
+def run_single_game(game_class, player1, player2):
+    game = game_class()
+    board = game.getInitBoard()
+    currentPlayer = 1
+
+    while True:
+        if currentPlayer == 1:
+            action = player1(board, currentPlayer)
+        else:
+            action = player2(board, currentPlayer)
+
+        board, currentPlayer = game.getNextState(board, currentPlayer, action)
+        result = game.getGameEnded(board, currentPlayer)
+        if result != 0:
+            return int(result * currentPlayer)
+            
 class Arena:
     """
     An Arena class where two agents (functions returning actions) can be pitted against each other.
     Modeled after Surag's alpha-zero-general approach.
     """
 
+
+
     def playGames_parallel(self, num_games=20, num_workers=None, verbose=False):
         """
         Parallelized version of playGames().
-        Plays 'num_games' between player1 and player2 using multiprocessing.
-        Each game returns:
-            +1 if player1 wins
-            -1 if player2 wins
-             0 for draw
-        Returns:
-            (player1_wins, player2_wins, draws)
+        Spawns separate processes for each game using multiprocessing.
         """
-
-        def run_single_game(_):
-            game = self.game.__class__()  # create a fresh instance for each worker
-            board = game.getInitBoard()
-            currentPlayer = 1
-
-            while True:
-                if currentPlayer == 1:
-                    action = self.player1(board, currentPlayer)
-                else:
-                    action = self.player2(board, currentPlayer)
-
-                board, currentPlayer = game.getNextState(board, currentPlayer, action)
-                result = game.getGameEnded(board, currentPlayer)
-                if result != 0:
-                    return int(result * currentPlayer)
-
         num_workers = num_workers or min(mp.cpu_count(), num_games)
-
-        with mp.get_context("spawn").Pool(processes=num_workers) as pool:
-            results = pool.map(run_single_game, range(num_games))
+        with get_context("spawn").Pool(processes=num_workers) as pool:
+            results = pool.starmap(run_single_game, [
+                (self.game.__class__, self.player1, self.player2)
+                for _ in range(num_games)
+            ])
 
         oneWon = results.count(1)
         twoWon = results.count(-1)
         draws = results.count(0)
 
         return oneWon, twoWon, draws
+
 
     def __init__(self, player1, player2, game, display=None):
         """
