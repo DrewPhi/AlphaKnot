@@ -152,12 +152,16 @@ class Coach:
             if torch.distributed.is_initialized():
                 torch.distributed.barrier()
 
-            train_start = time.time()
-            if hasattr(self.nnet.nnet, "module"):
-                self.nnet.nnet.module.train(iterationTrainExamples)
-            else:
+            if self.rank == 0:
+                train_start = time.time()
+                if hasattr(self.nnet.nnet, "module"):
+                    self.nnet.nnet.module.train()
+                else:
+                    self.nnet.nnet.train()
                 self.nnet.train(iterationTrainExamples)
-            train_time = time.time() - train_start
+                train_time = time.time() - train_start
+                print(f"[Training] Completed training in {train_time:.2f}s")
+
 
             if self.rank == 0:
                 print(f"[Training] Completed training in {train_time:.2f}s")
