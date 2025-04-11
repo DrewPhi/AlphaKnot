@@ -226,7 +226,16 @@ class NNetWrapper:
         if not os.path.isfile(filepath):
             raise FileNotFoundError(f"No checkpoint found at {filepath}")
         checkpoint = torch.load(filepath, map_location=self.device)
-        self.model.load_state_dict(checkpoint['state_dict'])
+        state_dict = checkpoint['state_dict']
+
+        # 🔧 Strip 'module.' prefix if loading from DDP-wrapped model
+        new_state_dict = {}
+        for k, v in state_dict.items():
+            new_key = k.replace("module.", "") if k.startswith("module.") else k
+            new_state_dict[new_key] = v
+
+        self.model.load_state_dict(new_state_dict)
+
         if 'optimizer' in checkpoint:
             self.optimizer.load_state_dict(checkpoint['optimizer'])
         self.latest_loss = checkpoint.get('latest_loss', float('inf'))
