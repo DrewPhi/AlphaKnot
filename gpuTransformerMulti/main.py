@@ -44,7 +44,7 @@ def main():
     # Move model to this process's device and wrap with DDP if using multi-GPU
     if world_size > 1:
         nnet.model.to(f'cuda:{local_rank}')
-        nnet.model = DDP(nnet.nnet, device_ids=[local_rank], output_device=local_rank)
+        nnet.model = DDP(nnet.model, device_ids=[local_rank], output_device=local_rank)
     coach = Coach(game, nnet, Args())
 
     coach.learn()   # perform training (possibly distributed)
