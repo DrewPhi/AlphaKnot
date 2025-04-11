@@ -203,10 +203,11 @@ class Coach:
                                                             .getActionProb(*self.game.getCanonicalForm(board, player), temp=0))
 
                 arena1 = Arena(player_fn(self.nnet), player_fn(prev_nnet), self.game)
-                nwins1, pwins1, draws1 = arena1.playGames(config.arenaCompare // 2)
+                nwins1, pwins1, draws1 = arena1.playGames_parallel(num_games=config.arenaCompare // 2)
 
                 arena2 = Arena(player_fn(prev_nnet), player_fn(self.nnet), self.game)
-                pwins2, nwins2, draws2 = arena2.playGames(config.arenaCompare // 2)
+                pwins2, nwins2, draws2 = arena2.playGames_parallel(num_games=config.arenaCompare // 2)
+
 
                 nwins = nwins1 + nwins2
                 pwins = pwins1 + pwins2
