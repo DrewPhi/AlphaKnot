@@ -7,9 +7,24 @@ from arena import Arena
 from mcts import MCTS
 import time
 import torch
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool, cpu_count, set_start_method
 from knot_graph_game import KnotGraphGame
 from knot_graph_nnet import NNetWrapper
+
+# Set multiprocessing start method to avoid CUDA forking issue
+set_start_method("spawn", force=True)
+def _run_episode_with_coach(coach, ep_num):
+    start = time.time()
+    result = coach.executeEpisode()
+    print(f"[CPU] Self-play Episode {ep_num} completed in {time.time() - start:.2f}s")
+    return result
+def _init_worker(checkpoint_path, args):
+    game = KnotGraphGame()
+    game.getInitBoard()
+    nnet = NNetWrapper(game)
+    if checkpoint_path and os.path.isfile(checkpoint_path):
+        nnet.load_checkpoint(checkpoint_path)
+    return Coach(game, nnet, args)
 
 def _execute_single_episode(args):
     game_cls, nnet_class, checkpoint_path, coach_args, rank, ep_num = args
@@ -36,6 +51,7 @@ class Coach:
 
         if config.load_model:
             self.loadTrainExamples()
+
 
 
     def executeEpisode(self):
@@ -115,18 +131,20 @@ class Coach:
                 print(f'\n{"=" * 30}\n STARTING ITERATION {i}/{config.numIters}\n{"=" * 30}')
             iteration_start = time.time()
 
-            # ⚡ Parallel self-play using multiprocessing
-            num_workers = min(cpu_count(), config.numEps)
-            print(f"[CPU] Launching {config.numEps} self-play episodes using {num_workers} workers.")
-            with Pool(processes=num_workers) as pool:
-                checkpoint = os.path.join(config.checkpoint, 'best.pth.tar')
-                args = [(KnotGraphGame, NNetWrapper, checkpoint, self.args, j % num_workers, j + 1) for j in range(config.numEps)]
-                results = pool.map(_execute_single_episode, args)
-
-            iterationTrainExamples = [item for sublist in results for item in sublist]
-            self.trainExamplesHistory.extend(iterationTrainExamples)
-
             if self.rank == 0:
+                # ⚡ Parallel self-play using multiprocessing
+                num_workers = min(cpu_count(), config.numEps)
+                print(f"[CPU] Launching {config.numEps} self-play episodes using {num_workers} workers.")
+                checkpoint = os.path.join(config.checkpoint, 'best.pth.tar')
+
+                with Pool(processes=num_workers) as pool:
+                    coaches = [ _init_worker(checkpoint, self.args) for _ in range(num_workers) ]
+                    args = [(coaches[i % num_workers], i + 1) for i in range(config.numEps)]
+                    results = pool.starmap(_run_episode_with_coach, args)
+
+                iterationTrainExamples = [item for sublist in results for item in sublist]
+                self.trainExamplesHistory.extend(iterationTrainExamples)
+
                 self.saveTrainExamples(i - 1)
                 random.shuffle(iterationTrainExamples)
                 print("[Training] Started neural network training.")
@@ -160,7 +178,7 @@ class Coach:
 
                 def player_fn(nnet):
                     return lambda board, player: np.argmax(MCTS(self.game, nnet, self.args)
-                                                        .getActionProb(*self.game.getCanonicalForm(board, player), temp=0))
+                                                            .getActionProb(*self.game.getCanonicalForm(board, player), temp=0))
 
                 arena1 = Arena(player_fn(self.nnet), player_fn(prev_nnet), self.game)
                 nwins1, pwins1, draws1 = arena1.playGames(config.arenaCompare // 2)
@@ -216,6 +234,7 @@ class Coach:
                 print(f"[Iteration] Iteration time: {iteration_time:.2f} minutes | "
                       f"Total elapsed: {total_elapsed:.2f} minutes | "
                       f"Estimated remaining: {est_remaining:.2f} minutes")
+
 
 
 
