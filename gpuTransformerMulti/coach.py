@@ -21,10 +21,13 @@ def _run_episode_with_coach(coach, ep_num):
 def _init_worker(checkpoint_path, args):
     game = KnotGraphGame()
     game.getInitBoard()
-    nnet = NNetWrapper(game, device="cpu")
+    # Choose CPU or GPU for self-play model based on config
+    device = "cpu" if config.use_cpu_in_selfplay or not torch.cuda.is_available() else "cuda"
+    nnet = NNetWrapper(game, device=device)
     if checkpoint_path and os.path.isfile(checkpoint_path):
         nnet.load_checkpoint(checkpoint_path)
     return Coach(game, nnet, args)
+
 
 def _execute_single_episode(args):
     game_cls, nnet_class, checkpoint_path, coach_args, rank, ep_num = args
@@ -82,46 +85,44 @@ class Coach:
 
 
 
+
     def evaluate_against_random(self, nnet, num_games=50):
         """
-        Evaluate the given nnet against a random player separately as Player 1 and Player 2.
+        Parallel evaluation of the given nnet against a random player.
         Returns the AI win rates going first and second.
         """
-        from arena import Arena
-        import numpy as np
+        def run_game(game, player1, player2):
+            arena = Arena(player1, player2, game)
+            return arena.playGame()
 
         def nnet_player(board, player):
             canonicalBoard, current_player = self.game.getCanonicalForm(board, player)
             pi = MCTS(self.game, nnet, self.args).getActionProb(canonicalBoard, current_player, temp=0)
             return np.argmax(pi)
 
-
-
         def random_player(board, player):
             valids = self.game.getValidMoves(board, player).cpu().numpy()
             valid_actions = np.where(valids == 1)[0]
             return np.random.choice(valid_actions)
 
-        # AI as Player 1 (going first)
-        arena_p1 = Arena(nnet_player, random_player, self.game)
-        ai_p1_wins, random_p2_wins, draws_p1 = arena_p1.playGames(num_games)
+        with Pool() as pool:
+            print("[Arena] Parallel evaluation: AI as Player 1...")
+            p1_results = pool.starmap(run_game, [(self.game, nnet_player, random_player) for _ in range(num_games)])
+            print("[Arena] Parallel evaluation: AI as Player 2...")
+            p2_results = pool.starmap(run_game, [(self.game, random_player, nnet_player) for _ in range(num_games)])
 
-        # AI as Player 2 (going second)
-        arena_p2 = Arena(random_player, nnet_player, self.game)
-        random_p1_wins, ai_p2_wins, draws_p2 = arena_p2.playGames(num_games)
+        ai_p1_wins = p1_results.count(1)
+        ai_p2_wins = p2_results.count(-1)
 
-        # Calculate percentages separately
-        ai_p1_winrate = (ai_p1_wins / num_games) * 100
-        ai_p2_winrate = (ai_p2_wins / num_games) * 100
-        draw_rate_p1 = (draws_p1 / num_games) * 100
-        draw_rate_p2 = (draws_p2 / num_games) * 100
+        ai_p1_winrate = 100 * ai_p1_wins / num_games
+        ai_p2_winrate = 100 * ai_p2_wins / num_games
 
-        print("\n Evaluation vs Random Player:")
-        print(f"➡️  AI going FIRST: AI wins: {ai_p1_winrate:.2f}%, Draws: {draw_rate_p1:.2f}%")
-        print(f"⬅️  AI going SECOND: AI wins: {ai_p2_winrate:.2f}%, Draws: {draw_rate_p2:.2f}%\n")
+        print("\nEvaluation vs Random Player:")
+        print(f"➡️  AI FIRST:  {ai_p1_winrate:.2f}% wins")
+        print(f"⬅️  AI SECOND: {ai_p2_winrate:.2f}% wins")
 
-        # Explicitly return these values!
         return ai_p1_winrate, ai_p2_winrate
+
 
 
     def learn(self):
@@ -133,12 +134,13 @@ class Coach:
 
             if self.rank == 0:
                 # ⚡ Parallel self-play using multiprocessing
-                num_workers = min(cpu_count(), config.numEps)
+                num_workers = min(os.cpu_count(), config.numEps)
                 print(f"[CPU] Launching {config.numEps} self-play episodes using {num_workers} workers.")
                 checkpoint = os.path.join(config.checkpoint, 'best.pth.tar')
 
+                from multiprocessing import Pool
                 with Pool(processes=num_workers) as pool:
-                    coaches = [ _init_worker(checkpoint, self.args) for _ in range(num_workers) ]
+                    coaches = [_init_worker(checkpoint, self.args) for _ in range(num_workers)]
                     args = [(coaches[i % num_workers], i + 1) for i in range(config.numEps)]
                     results = pool.starmap(_run_episode_with_coach, args)
 
@@ -152,20 +154,36 @@ class Coach:
             if torch.distributed.is_initialized():
                 torch.distributed.barrier()
 
-            if self.rank == 0:
+            # Set model to training mode
+            if hasattr(self.nnet.model, "module"):
+                self.nnet.model.module.train()
+            else:
+                self.nnet.model.train()
+
+            if torch.distributed.is_initialized():
+                # Broadcast examples to all ranks
+                data_list = [iterationTrainExamples] if self.rank == 0 else [None]
+                torch.distributed.broadcast_object_list(data_list, src=0)
+                iterationTrainExamples = data_list[0]
+
+                # Split data for distributed training
+                total = len(iterationTrainExamples)
+                n_procs = torch.distributed.get_world_size()
+                per_rank = total // n_procs
+                start = self.rank * per_rank
+                end = total if self.rank == n_procs - 1 else (self.rank + 1) * per_rank
+                local_examples = iterationTrainExamples[start:end]
+
+                train_start = time.time() if self.rank == 0 else None
+                self.nnet.train(local_examples)
+                if self.rank == 0:
+                    print(f"[Training] Completed distributed training in {time.time() - train_start:.2f}s")
+            else:
                 train_start = time.time()
-                if hasattr(self.nnet.nnet, "module"):
-                    self.nnet.nnet.module.train()
-                else:
-                    self.nnet.nnet.train()
                 self.nnet.train(iterationTrainExamples)
-                train_time = time.time() - train_start
-                print(f"[Training] Completed training in {train_time:.2f}s")
-
+                print(f"[Training] Completed training in {time.time() - train_start:.2f}s")
 
             if self.rank == 0:
-                print(f"[Training] Completed training in {train_time:.2f}s")
-
                 if config.saveIterCheckpoint:
                     folder = config.checkpoint
                     filename = f'checkpoint_{i}.pth.tar'
@@ -236,8 +254,9 @@ class Coach:
                 total_elapsed = (time.time() - total_start) / 60
                 est_remaining = (total_elapsed / i) * (config.numIters - i)
                 print(f"[Iteration] Iteration time: {iteration_time:.2f} minutes | "
-                      f"Total elapsed: {total_elapsed:.2f} minutes | "
-                      f"Estimated remaining: {est_remaining:.2f} minutes")
+                    f"Total elapsed: {total_elapsed:.2f} minutes | "
+                    f"Estimated remaining: {est_remaining:.2f} minutes")
+
 
 
 
