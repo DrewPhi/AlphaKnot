@@ -211,11 +211,22 @@ class Coach:
                         p2 = PlayerFn(prev_nnet, self.game, self.args)
 
 
-                        arena1 = Arena(p1, p2, self.game)
+                        arena1 = Arena(
+                            nnet1_path=os.path.join(config.checkpoint, f'checkpoint_{i}.pth.tar'),
+                            nnet2_path=os.path.join(config.checkpoint, 'best.pth.tar'),
+                            game_class=self.game.__class__,
+                            args=self.args
+                        )
                         nwins1, pwins1, draws1 = arena1.playGames_parallel(num_games=config.arenaCompare // 2)
 
-                        arena2 = Arena(p2, p1, self.game)
+                        arena2 = Arena(
+                            nnet1_path=os.path.join(config.checkpoint, 'best.pth.tar'),
+                            nnet2_path=os.path.join(config.checkpoint, f'checkpoint_{i}.pth.tar'),
+                            game_class=self.game.__class__,
+                            args=self.args
+                        )
                         pwins2, nwins2, draws2 = arena2.playGames_parallel(num_games=config.arenaCompare // 2)
+
 
                         nwins = nwins1 + nwins2
                         pwins = pwins1 + pwins2
@@ -251,11 +262,22 @@ class Coach:
                 p2 = PlayerFn(prev_nnet, self.game, self.args)
 
 
-                arena1 = Arena(p1, p2, self.game)
+                arena1 = Arena(
+                    nnet1_path=os.path.join(config.checkpoint, f'checkpoint_{i}.pth.tar'),
+                    nnet2_path=os.path.join(config.checkpoint, 'best.pth.tar'),
+                    game_class=self.game.__class__,
+                    args=self.args
+                )
                 nwins1, pwins1, draws1 = arena1.playGames_parallel(num_games=config.arenaCompare // 2)
 
-                arena2 = Arena(p2, p1, self.game)
+                arena2 = Arena(
+                    nnet1_path=os.path.join(config.checkpoint, 'best.pth.tar'),
+                    nnet2_path=os.path.join(config.checkpoint, f'checkpoint_{i}.pth.tar'),
+                    game_class=self.game.__class__,
+                    args=self.args
+                )
                 pwins2, nwins2, draws2 = arena2.playGames_parallel(num_games=config.arenaCompare // 2)
+
 
 
 
