@@ -183,9 +183,42 @@ class Coach:
                     filename = f'checkpoint_{i}.pth.tar'
                     self.nnet.save_checkpoint(os.path.join(folder, filename))
                     print(f"[Checkpoint] Saved: {filename}")
-                if i == 1 and not config.resume_training:
-                    print('Initial iteration complete; setting current model as champion.')
-                    self.nnet.save_checkpoint(os.path.join(config.checkpoint, 'best.pth.tar'))
+                if i == 1:
+                    if config.resume_training:
+                        print('Evaluating checkpoint 1 against previous champion (best.pth.tar)...')
+                        prev_nnet = self.nnet.__class__(self.game)
+                        prev_nnet.load_checkpoint(os.path.join(config.checkpoint, 'best.pth.tar'))
+
+                        p1 = make_player_fn(self.nnet, self.game, self.args)
+                        p2 = make_player_fn(prev_nnet, self.game, self.args)
+
+                        arena1 = Arena(p1, p2, self.game)
+                        nwins1, pwins1, draws1 = arena1.playGames_parallel(num_games=config.arenaCompare // 2)
+
+                        arena2 = Arena(p2, p1, self.game)
+                        pwins2, nwins2, draws2 = arena2.playGames_parallel(num_games=config.arenaCompare // 2)
+
+                        nwins = nwins1 + nwins2
+                        pwins = pwins1 + pwins2
+                        draws = draws1 + draws2
+
+                        winRate = float(nwins) / (nwins + pwins) if (nwins + pwins) else 0
+
+                        print(f'[Arena Results] New model wins: {nwins}, Previous model wins: {pwins}, Draws: {draws}')
+                        print(f'[Arena Results] New model win rate: {winRate:.2%}')
+
+                        if winRate > 0.5:
+                            print('New model wins head-to-head. Accepting new model as champion.')
+                            self.nnet.save_checkpoint(os.path.join(config.checkpoint, 'best.pth.tar'))
+                        elif winRate < 0.5:
+                            print('Previous model wins head-to-head. Reverting to previous model.')
+                            self.nnet.load_checkpoint(os.path.join(config.checkpoint, f'checkpoint_{i}.pth.tar'))
+                        else:
+                            print('Tie. Keeping current champion.')
+                    else:
+                        print('Initial iteration complete; no champion yet — accepting current model as best.')
+                        self.nnet.save_checkpoint(os.path.join(config.checkpoint, 'best.pth.tar'))
+
 
 
             if config.arenaCompare > 0 and i > 1 and self.rank == 0:
