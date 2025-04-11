@@ -111,19 +111,65 @@ class Coach:
 
 
 
-    def evaluate_against_random(self, nnet, num_games=50):
-        with Pool() as pool:
-            print("[Arena] Parallel evaluation: AI as Player 1...")
-            p1_results = pool.starmap(
-                run_game, [(self.game, NNetPlayer(self.game, nnet, self.args), RandomPlayer(self.game)) for _ in range(num_games)]
-            )
-            print("[Arena] Parallel evaluation: AI as Player 2...")
-            p2_results = pool.starmap(
-                run_game, [(self.game, RandomPlayer(self.game), NNetPlayer(self.game, nnet, self.args)) for _ in range(num_games)]
+
+    def evaluate_against_random_model_path(self, model_path, num_games=50):
+        """
+        Evaluate a model (given by checkpoint path) against a random player using Arena parallel eval.
+        """
+        def run_against_random(game_class, model_path, args, as_first_player):
+            from knot_graph_game import KnotGraphGame
+            from knot_graph_nnet import NNetWrapper
+            from mcts import MCTS
+            import torch
+            import numpy as np
+            import random
+
+            game = game_class()
+            game.getInitBoard()
+
+            nnet = NNetWrapper(game, device="cuda" if torch.cuda.is_available() else "cpu")
+            nnet.load_checkpoint(model_path)
+
+            def nnet_player(board, player):
+                canonicalBoard, current_player = game.getCanonicalForm(board, player)
+                pi = MCTS(game, nnet, args).getActionProb(canonicalBoard, current_player, temp=0)
+                return np.argmax(pi)
+
+            def random_player(board, player):
+                valids = game.getValidMoves(board, player).cpu().numpy()
+                valid_actions = np.where(valids == 1)[0]
+                return random.choice(valid_actions)
+
+            player1, player2 = (nnet_player, random_player) if as_first_player else (random_player, nnet_player)
+
+            board = game.getInitBoard()
+            curPlayer = 1
+            while True:
+                action = player1(board, curPlayer) if curPlayer == 1 else player2(board, curPlayer)
+                board, curPlayer = game.getNextState(board, curPlayer, action)
+                result = game.getGameEnded(board, curPlayer)
+                if result != 0:
+                    return int(result * curPlayer)
+
+        import multiprocessing as mp
+        ctx = mp.get_context("spawn")
+
+        print("[Arena] Parallel evaluation: AI as Player 1...")
+        with ctx.Pool() as pool:
+            results_first = pool.starmap(
+                run_against_random,
+                [(KnotGraphGame, model_path, self.args, True) for _ in range(num_games)]
             )
 
-        ai_p1_wins = p1_results.count(1)
-        ai_p2_wins = p2_results.count(-1)
+        print("[Arena] Parallel evaluation: AI as Player 2...")
+        with ctx.Pool() as pool:
+            results_second = pool.starmap(
+                run_against_random,
+                [(KnotGraphGame, model_path, self.args, False) for _ in range(num_games)]
+            )
+
+        ai_p1_wins = results_first.count(1)
+        ai_p2_wins = results_second.count(-1)
 
         ai_p1_winrate = 100 * ai_p1_wins / num_games
         ai_p2_winrate = 100 * ai_p2_wins / num_games
@@ -133,6 +179,7 @@ class Coach:
         print(f"⬅️  AI SECOND: {ai_p2_winrate:.2f}% wins")
 
         return ai_p1_winrate, ai_p2_winrate
+
 
 
 
@@ -299,10 +346,14 @@ class Coach:
                 else:
                     print("Head-to-head tied. Evaluating both models against Random Player...")
                     print("\nEvaluating CURRENT CANDIDATE vs Random Player:")
-                    ai_current_p1, ai_current_p2 = self.evaluate_against_random(self.nnet, num_games=100)
+                    ai_current_p1, ai_current_p2 = self.evaluate_against_random_model_path(
+                        os.path.join(config.checkpoint, f"checkpoint_{i}.pth.tar"), num_games=100
+                    )
 
                     print("\nEvaluating PREVIOUS CHAMPION vs Random Player:")
-                    ai_prev_p1, ai_prev_p2 = self.evaluate_against_random(prev_nnet, num_games=100)
+                    ai_prev_p1, ai_prev_p2 = self.evaluate_against_random_model_path(
+                        os.path.join(config.checkpoint, "best.pth.tar"), num_games=100
+                    )
 
                     current_avg = (ai_current_p1 + ai_current_p2) / 2
                     prev_avg = (ai_prev_p1 + ai_prev_p2) / 2
