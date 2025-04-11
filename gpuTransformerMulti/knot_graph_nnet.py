@@ -140,17 +140,22 @@ class KnotGraphNet(nn.Module):
 
 
 class NNetWrapper:
-    def __init__(self, game, hidden_dim=64, num_heads=8, num_layers=6, dropout=0.1):
+    def __init__(self, game, hidden_dim=64, num_heads=8, num_layers=6, dropout=0.1, device="auto"):
         """
         Wrapper for the KnotGraphNet to interface with AlphaZero-General training.
+        :param device: 'auto' (default), 'cpu', or 'cuda'.
+                       'auto' chooses 'cuda' if available.
         """
-        self.nnet = KnotGraphNet(game, hidden_dim, num_heads, num_layers, dropout)
-        self.action_size = game.getActionSize()
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.nnet.to(self.device)
+        if device == "auto":
+            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        else:
+            self.device = torch.device(device)
+
+        self.nnet = KnotGraphNet(game, hidden_dim, num_heads, num_layers, dropout).to(self.device)
         print("[Device]", self.device)
         self.optimizer = optim.Adam(self.nnet.parameters(), lr=getattr(game, 'learning_rate', 0.001))
-        
+        self.action_size = game.getActionSize()
+
         # If desired, load pre-existing model.
         if hasattr(game, "resumeTraining") and game.resumeTraining:
             checkpoint_path = os.path.join(config.checkpoint, 'best.pth.tar')
@@ -175,68 +180,3 @@ class NNetWrapper:
                 else:
                     self.label_to_nodes[label].append(i)
         self.initial_node_labels = [list(map(int, cr[:4])) for cr in game.initial_pd_code]
-
-    def train(self, examples):
-        """
-        Train the network for a number of epochs on the provided examples.
-        :param examples: list of (state, pi, v) tuples.
-        """
-        self.latest_loss = 0
-        self.nnet.train()
-        epochs = getattr(__import__('config'), 'num_epochs', 1)
-        for epoch in range(epochs):
-            total_loss = 0
-            count = 0
-            for state, pi, v in examples:
-                pd_code = getattr(state, 'pd_code', state)
-                if isinstance(state, Data):
-                    data = state
-                else:
-                    data = KnotGraphGame().pd_code_to_graph_data(state)
-                data = data.to(self.device)
-                target_pi = torch.tensor(pi, dtype=torch.float32).unsqueeze(0).to(self.device)
-                target_v = torch.tensor([v], dtype=torch.float32).to(self.device)
-                out_pi, out_v = self.nnet(data)
-                log_probs = F.log_softmax(out_pi, dim=1)
-                l_pi = -torch.sum(target_pi * log_probs)
-                l_v = F.mse_loss(out_v.view(-1), target_v.view(-1))
-                loss = l_pi + l_v
-                total_loss += loss.item()
-                count += 1
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
-                self.latest_loss = total_loss / count if count > 0 else float('inf')
-
-    def predict(self, state):
-        self.nnet.eval()
-        if isinstance(state, Data):
-            data = state
-        else:
-            data = KnotGraphGame().pd_code_to_graph_data(state)
-        data = data.to(self.device)
-        with torch.no_grad():
-            out_pi, out_v = self.nnet(data)
-            pi_probs = F.softmax(out_pi, dim=1).cpu().numpy()[0]
-            v = out_v.item()
-        return pi_probs, v
-
-    def save_checkpoint(self, filepath):
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        torch.save({
-            'state_dict': self.nnet.state_dict(),
-            'optimizer': self.optimizer.state_dict(),
-            'latest_loss': self.latest_loss
-        }, filepath)
-        print(f"Checkpoint saved at {filepath}")
-
-    def load_checkpoint(self, filepath):
-        if not os.path.isfile(filepath):
-            raise FileNotFoundError(f"No checkpoint found at {filepath}")
-        checkpoint = torch.load(filepath, map_location=self.device)
-        self.nnet.load_state_dict(checkpoint['state_dict'])
-        if 'optimizer' in checkpoint:
-            self.optimizer.load_state_dict(checkpoint['optimizer'])
-        self.latest_loss = checkpoint.get('latest_loss', float('inf'))
-        self.nnet.to(self.device)
-        print(f"Loaded checkpoint from {filepath}")

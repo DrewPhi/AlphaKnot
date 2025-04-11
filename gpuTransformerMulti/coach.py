@@ -21,7 +21,7 @@ def _run_episode_with_coach(coach, ep_num):
 def _init_worker(checkpoint_path, args):
     game = KnotGraphGame()
     game.getInitBoard()
-    nnet = NNetWrapper(game)
+    nnet = NNetWrapper(game, device="cpu")
     if checkpoint_path and os.path.isfile(checkpoint_path):
         nnet.load_checkpoint(checkpoint_path)
     return Coach(game, nnet, args)
