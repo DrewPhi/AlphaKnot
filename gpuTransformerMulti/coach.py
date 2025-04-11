@@ -30,12 +30,43 @@ def _init_worker(checkpoint_path, args):
 
 
 
-def make_player_fn(nnet, game, args):
-    def player(board, player_id):
-        canonicalBoard, current_player = game.getCanonicalForm(board, player_id)
-        pi = MCTS(game, nnet, args).getActionProb(canonicalBoard, current_player, temp=0)
+class PlayerFn:
+    def __init__(self, nnet, game, args):
+        self.nnet = nnet
+        self.game = game
+        self.args = args
+
+    def __call__(self, board, player_id):
+        canonicalBoard, current_player = self.game.getCanonicalForm(board, player_id)
+        pi = MCTS(self.game, self.nnet, self.args).getActionProb(canonicalBoard, current_player, temp=0)
         return np.argmax(pi)
-    return player
+
+
+
+def run_game(game, player1, player2):
+    arena = Arena(player1, player2, game)
+    return arena.playGame()
+
+class NNetPlayer:
+    def __init__(self, game, nnet, args):
+        self.game = game
+        self.nnet = nnet
+        self.args = args
+
+    def __call__(self, board, player):
+        canonicalBoard, current_player = self.game.getCanonicalForm(board, player)
+        pi = MCTS(self.game, self.nnet, self.args).getActionProb(canonicalBoard, current_player, temp=0)
+        return np.argmax(pi)
+
+class RandomPlayer:
+    def __init__(self, game):
+        self.game = game
+
+    def __call__(self, board, player):
+        valids = self.game.getValidMoves(board, player).cpu().numpy()
+        valid_actions = np.where(valids == 1)[0]
+        return np.random.choice(valid_actions)
+    
 
 class Coach:
     def __init__(self, game, nnet, args):
@@ -81,29 +112,15 @@ class Coach:
 
 
     def evaluate_against_random(self, nnet, num_games=50):
-        """
-        Parallel evaluation of the given nnet against a random player.
-        Returns the AI win rates going first and second.
-        """
-        def run_game(game, player1, player2):
-            arena = Arena(player1, player2, game)
-            return arena.playGame()
-
-        def nnet_player(board, player):
-            canonicalBoard, current_player = self.game.getCanonicalForm(board, player)
-            pi = MCTS(self.game, nnet, self.args).getActionProb(canonicalBoard, current_player, temp=0)
-            return np.argmax(pi)
-
-        def random_player(board, player):
-            valids = self.game.getValidMoves(board, player).cpu().numpy()
-            valid_actions = np.where(valids == 1)[0]
-            return np.random.choice(valid_actions)
-
         with Pool() as pool:
             print("[Arena] Parallel evaluation: AI as Player 1...")
-            p1_results = pool.starmap(run_game, [(self.game, nnet_player, random_player) for _ in range(num_games)])
+            p1_results = pool.starmap(
+                run_game, [(self.game, NNetPlayer(self.game, nnet, self.args), RandomPlayer(self.game)) for _ in range(num_games)]
+            )
             print("[Arena] Parallel evaluation: AI as Player 2...")
-            p2_results = pool.starmap(run_game, [(self.game, random_player, nnet_player) for _ in range(num_games)])
+            p2_results = pool.starmap(
+                run_game, [(self.game, RandomPlayer(self.game), NNetPlayer(self.game, nnet, self.args)) for _ in range(num_games)]
+            )
 
         ai_p1_wins = p1_results.count(1)
         ai_p2_wins = p2_results.count(-1)
@@ -116,6 +133,7 @@ class Coach:
         print(f"⬅️  AI SECOND: {ai_p2_winrate:.2f}% wins")
 
         return ai_p1_winrate, ai_p2_winrate
+
 
 
 
@@ -189,8 +207,9 @@ class Coach:
                         prev_nnet = self.nnet.__class__(self.game)
                         prev_nnet.load_checkpoint(os.path.join(config.checkpoint, 'best.pth.tar'))
 
-                        p1 = make_player_fn(self.nnet, self.game, self.args)
-                        p2 = make_player_fn(prev_nnet, self.game, self.args)
+                        p1 = PlayerFn(self.nnet, self.game, self.args)
+                        p2 = PlayerFn(prev_nnet, self.game, self.args)
+
 
                         arena1 = Arena(p1, p2, self.game)
                         nwins1, pwins1, draws1 = arena1.playGames_parallel(num_games=config.arenaCompare // 2)
@@ -228,8 +247,9 @@ class Coach:
 
 
 
-                p1 = make_player_fn(self.nnet, self.game, self.args)
-                p2 = make_player_fn(prev_nnet, self.game, self.args)
+                p1 = PlayerFn(self.nnet, self.game, self.args)
+                p2 = PlayerFn(prev_nnet, self.game, self.args)
+
 
                 arena1 = Arena(p1, p2, self.game)
                 nwins1, pwins1, draws1 = arena1.playGames_parallel(num_games=config.arenaCompare // 2)
