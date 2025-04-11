@@ -39,7 +39,7 @@ def run_against_random(game_class, model_path, args, as_first_player):
     game = game_class()
     game.getInitBoard()
 
-    nnet = NNetWrapper(game, device="cuda" if torch.cuda.is_available() else "cpu")
+    nnet = NNetWrapper(game, device="cpu")
     nnet.load_checkpoint(model_path)
 
     def nnet_player(board, player):
