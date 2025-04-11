@@ -222,22 +222,25 @@ class NNetWrapper:
         }, filepath)
         print(f"Checkpoint saved at {filepath}")
 
-    def load_checkpoint(self, filepath):
-        if not os.path.isfile(filepath):
-            raise FileNotFoundError(f"No checkpoint found at {filepath}")
-        checkpoint = torch.load(filepath, map_location=self.device)
+    def load_checkpoint(self, filename):
+        assert os.path.isfile(filename), f"No model found at {filename}"
+        checkpoint = torch.load(filename, map_location=self.device)
+
+        # Get the state dict
         state_dict = checkpoint['state_dict']
 
-        # 🔧 Strip 'module.' prefix if loading from DDP-wrapped model
+        # If model is wrapped in DistributedDataParallel
+        is_ddp = isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
         new_state_dict = {}
+
         for k, v in state_dict.items():
-            new_key = k.replace("module.", "") if k.startswith("module.") else k
-            new_state_dict[new_key] = v
+            if is_ddp and not k.startswith("module."):
+                new_state_dict["module." + k] = v
+            elif not is_ddp and k.startswith("module."):
+                new_state_dict[k[len("module."):]] = v
+            else:
+                new_state_dict[k] = v
 
         self.model.load_state_dict(new_state_dict)
+        print(f"[Device] Loaded checkpoint from {filename}")
 
-        if 'optimizer' in checkpoint:
-            self.optimizer.load_state_dict(checkpoint['optimizer'])
-        self.latest_loss = checkpoint.get('latest_loss', float('inf'))
-        self.model.to(self.device)
-        print(f"Loaded checkpoint from {filepath}")
