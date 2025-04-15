@@ -17,7 +17,7 @@ pd_codes = [
 max_strand_label = 27  # set this to the maximum strand label across all your PD codes, i.e. (4 \times crossing_number) - 1
 
 numIters = 1000  # Start with 100, scale up if needed.
-numEps = 8
+numEps = 100
 tempThreshold = 10
 updateThreshold = 0.55
 maxlenOfQueue = 50000
