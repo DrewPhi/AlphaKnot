@@ -1,20 +1,20 @@
 #!/bin/bash
 #SBATCH --job-name=alphaknot_ddp
 #SBATCH --partition=gpu
-#SBATCH --gres=gpu:8                # Use --gres for GPU requests
-#SBATCH --cpus-per-gpu=4            # Number of CPU cores per GPU
-#SBATCH --mem=128G                  # Adjust as needed
-#SBATCH --time=24:00:00             # Wall time (adjustable)
-#SBATCH --output=logs/%x_%j.out     # Log file with job name and ID
+#SBATCH --gres=gpu:8                # Request 8 GPUs
+#SBATCH --cpus-per-gpu=4            # Allocate 4 CPU cores per GPU
+#SBATCH --mem=128G                  # Total memory allocation
+#SBATCH --time=24:00:00             # Maximum runtime
+#SBATCH --output=logs/%x_%j.out     # Output log file
 
 module purge
 module load miniconda
-conda activate knot-env             
-# If needed, ensure you’re in the right project directory
+conda activate knot-env
+
 cd $SLURM_SUBMIT_DIR
 
-# Use SLURM's GPU count 
+# Determine the number of GPUs allocated
 NUM_GPUS=$SLURM_GPUS_ON_NODE
 
-# Launch one training process per GPU
+# Launch the training script using torchrun for distributed training
 torchrun --nproc_per_node=$NUM_GPUS --master_port=29500 main.py

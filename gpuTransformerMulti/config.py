@@ -28,9 +28,9 @@ num_epochs = 10
 checkpoint = './checkpoints/'
 saveIterCheckpoint = True
 load_model = False
-arenaCompare = 20
+arenaCompare = 4
 knotter_first = True
-
+randomGames = 50
 resume_training = True  # or False
 random_play_fraction = 0  # 25% of self-play games use a random player
 use_cpu_in_selfplay = False

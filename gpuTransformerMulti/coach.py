@@ -344,12 +344,12 @@ class Coach:
                     print("Head-to-head tied. Evaluating both models against Random Player...")
                     print("\nEvaluating CURRENT CANDIDATE vs Random Player:")
                     ai_current_p1, ai_current_p2 = self.evaluate_against_random_model_path(
-                        os.path.join(config.checkpoint, f"checkpoint_{i}.pth.tar"), num_games=100
+                        os.path.join(config.checkpoint, f"checkpoint_{i}.pth.tar"), num_games=config.randomGames
                     )
 
                     print("\nEvaluating PREVIOUS CHAMPION vs Random Player:")
                     ai_prev_p1, ai_prev_p2 = self.evaluate_against_random_model_path(
-                        os.path.join(config.checkpoint, "best.pth.tar"), num_games=100
+                        os.path.join(config.checkpoint, "best.pth.tar"), num_games=config.randomGames
                     )
 
                     current_avg = (ai_current_p1 + ai_current_p2) / 2
