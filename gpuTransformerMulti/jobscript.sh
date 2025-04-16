@@ -2,7 +2,7 @@
 #SBATCH --job-name=alphaknot
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:2                   # 2 GPUs (adjust if you need A100s, etc.)
-#SBATCH --cpus-per-task=64             # Total number of CPUs
+#SBATCH --cpus-per-task=50             # Total number of CPUs
 #SBATCH --mem=256G                     # Memory (adjust to match the CPU load)
 #SBATCH --time=24:00:00                # Max runtime
 #SBATCH --output=logs/%x_%j.out        # Output log file
