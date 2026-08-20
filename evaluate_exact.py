@@ -70,6 +70,11 @@ def main():
     root = solver.initial_state
     print(f"Exact root value: {solver.value(root):+d}")
     print(f"Exact optimal root actions: {solver.optimal_actions(root)}")
+    policy_solved = total["top1"] == count
+    value_solved = total["value"] == count
+    print(f"Policy optimal on every nonterminal state: {'YES' if policy_solved else 'NO'}")
+    print(f"Value sign correct on every nonterminal state: {'YES' if value_solved else 'NO'}")
+    print(f"SOLVED: {'YES' if policy_solved and value_solved else 'NO'}")
 
 
 if __name__ == "__main__":

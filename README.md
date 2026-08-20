@@ -74,6 +74,13 @@ training, `evaluate_exact.py` compares the checkpoint's policy and value at
 every nonterminal state with the minimax table. The smoke job is deliberately
 small; it validates the pipeline and should not be treated as a converged run.
 
+For a single Bouchet job that installs test-only dependencies, runs all tests,
+trains, and prints an explicit exhaustive `SOLVED: YES/NO` verdict, use:
+
+```bash
+sbatch jobscript_bouchet_full.sh
+```
+
 `torchrun` uses both GPUs for DDP training. Rank 0 uses CPU processes for
 self-play and arena games, bounded by `SLURM_CPUS_PER_TASK`. This avoids placing
 one model replica on a GPU for every CPU worker. Tune `selfplay_workers`, memory,
