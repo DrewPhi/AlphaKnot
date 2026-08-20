@@ -1,0 +1,455 @@
+% AlphaKnot / AlphaZero Knot project handoff for Codex
+% Compilable LaTeX source. This is intended as a technical context document,
+% not as a polished manuscript.
+
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{verbatim}
+\setlength{\emergencystretch}{6em}
+
+\title{AlphaKnot: Project Context, Mathematical Audit, and Training/HPC Plan}
+\author{}
+\date{August 2026}
+
+\begin{document}
+\maketitle
+
+\section{Project goal}
+
+The project is an AlphaZero-style framework for a knot-theoretic game, informally ``to knot or not to knot.'' The immediate engineering goal is to train a neural-network/MCTS agent by self-play on knot states represented using planar diagram (PD) codes. The longer-term scientific goals are broader:
+
+\begin{enumerate}[label=\arabic*.]
+    \item Learn strong strategies for the knot game through AlphaZero-style self-play rather than hand-coded strategy.
+    \item Use the trained agent to solve/prove outcomes of the game for as many knot instances as computationally feasible.
+    \item Inspect the learned policy/value strategy to discover recurring combinatorial or knot-theoretic principles.
+    \item Treat internal neural representations of knot positions as learned ``strategy representations'' and embed/cluster knots according to strategic similarity, rather than only classical knot invariants.
+    \item Compare those learned representations with known knot invariants and knot families, looking for new structure or conjectures.
+\end{enumerate}
+
+The current repository is:
+
+\begin{verbatim}
+https://github.com/DrewPhi/AlphaKnot
+\end{verbatim}
+
+There was also an older/possibly different repository called \texttt{AlphaZeroKnot}. The production implementation audited in August 2026 was \texttt{gpuTransformerMulti}. The complete legacy state is preserved on \texttt{archive/legacy-2026-08-20}; the cleaned \texttt{main} branch contains the production implementation and its tests.
+
+\section{High-level AlphaZero architecture}
+
+The implementation follows the usual AlphaZero pattern:
+
+\begin{enumerate}[label=\arabic*.]
+    \item A game state is a knot/PD-code state.
+    \item MCTS uses a neural network to obtain a policy over legal actions and a value estimate.
+    \item Self-play generates training examples.
+    \item The neural network is trained on the accumulated examples.
+    \item A newly trained network is compared against the previous champion in an arena.
+    \item The new model replaces the champion only if it performs sufficiently well.
+\end{enumerate}
+
+The model discussed previously is a graph neural network using PyTorch Geometric \texttt{TransformerConv}, approximately:
+
+\begin{verbatim}
+hidden_dim = 64
+num_heads = 8
+num_layers = 6
+dropout = 0.1
+\end{verbatim}
+
+The action size is obtained from \texttt{game.getActionSize()}, and the number of graph nodes is based on the current/initial PD-code representation.
+
+The training code has a \texttt{Coach.learn()} loop, self-play episode generation, MCTS, checkpointing, and arena evaluation. The intended checkpoint behavior is:
+
+\begin{itemize}
+    \item If \texttt{resume\_training=False}, iteration 1 establishes the initial trained network as the champion (\texttt{best.pth.tar}).
+    \item If \texttt{resume\_training=True}, iteration 1 should be compared against the existing \texttt{best.pth.tar}; it replaces the champion only if it wins the comparison.
+\end{itemize}
+
+Arena games return win/loss/draw values. There is also a random-player comparison/tie-breaker in the workflow. The audited configuration used 50 games in each player role, or 100 games total per evaluated model.
+
+\section{August 2026 implementation audit and fixes}
+
+The repository audit confirmed the cyclic crossing-sign bug described below and several training-system defects. The cleaned production implementation includes:
+
+\begin{itemize}
+    \item cyclic PD crossing signs and positional strand pairing, including the regression case \([7,1,8,14]\);
+    \item structural validation of all \(2^7=128\) assignments of the active shadow;
+    \item root-only Dirichlet noise restricted to legal MCTS actions;
+    \item scheduler-aware CPU worker counts and one CPU model loaded once per self-play/arena worker, avoiding one CUDA model per CPU process;
+    \item correct champion loading, rejection, optimizer/loss restoration, and synchronization across DDP ranks;
+    \item equal-length padded DDP shards so every rank performs the same number of backward synchronizations;
+    \item a self-contained exhaustive Kauffman-bracket/Jones evaluator for the validated small-crossing regime, removing the runtime dependency on Sage-only SnapPy polynomial methods;
+    \item fail-loud terminal classification, a configured maximum validated crossing number, tests, dependency files, and ignored runtime artifacts.
+\end{itemize}
+
+The production smoke test completes a full seven-move self-play episode. Tests also cover known Jones polynomials for the trefoil and figure-eight knot, checkpoint round trips, SLURM worker limits, DDP shard lengths, and the wraparound crossing regression.
+
+\section{Observed computational bottleneck}
+
+The important performance observation is that neural-network training itself does not appear to be the dominant bottleneck. Self-play is much more expensive because many independent MCTS games must be generated each iteration.
+
+We observed roughly:
+
+\begin{itemize}
+    \item Single-CPU self-play episodes on the order of a few seconds in some tests.
+    \item A prior distributed/multiprocess configuration showed episodes around 24--30 seconds per worker, with several workers running concurrently.
+\end{itemize}
+
+Therefore, simply requesting many GPUs is probably wasteful. A more sensible resource allocation is a small number of GPUs for network inference/training plus many CPU cores for parallel self-play.
+
+If there are 100 self-play games per iteration, requesting 50 CPU cores is a natural first configuration because two games can be assigned sequentially to each worker if the implementation actually launches 50 independent CPU workers. There is no requirement that the number of games divide the number of CPUs in general; the scheduler/work queue can simply give the next game to whichever worker becomes free. The important point is that the Python implementation must actually use the requested cores---SLURM allocation alone does not parallelize the code.
+
+\section{Yale/McCleary GPU-node observations}
+
+The \texttt{gpu} partition output showed that GPU nodes generally have four GPUs per node, not eight. Relevant GPU types included:
+
+\begin{itemize}
+    \item RTX 5000 nodes: 4 GPUs/node, typically 8 CPUs/node.
+    \item RTX 3090 nodes: 4 GPUs/node, typically 8 CPUs/node.
+    \item A5000 nodes: 4 GPUs/node, typically 32 CPUs/node.
+    \item A100 80GB nodes: 4 GPUs/node, typically 64 CPUs/node.
+\end{itemize}
+
+This means that a request such as
+
+\begin{verbatim}
+#SBATCH --gres=gpu:8
+\end{verbatim}
+
+cannot be satisfied on a single ordinary four-GPU node. Moreover, \texttt{torchrun --nproc\_per\_node=8} is a single-node launch pattern; it does not automatically turn an eight-GPU request into a correct two-node distributed job. True multi-node DDP would require explicit node/task configuration and rendezvous setup.
+
+For this project, multi-node GPU DDP is probably unnecessary because GPU training is not the primary bottleneck.
+
+\section{Recommended SLURM philosophy}
+
+The preferred configuration is currently:
+
+\begin{itemize}
+    \item one compute node;
+    \item two GPUs;
+    \item many CPU cores, ideally around 32--50 depending on what node classes the scheduler can satisfy and how self-play multiprocessing is implemented;
+    \item enough RAM for all simultaneous MCTS workers, but not an unnecessarily huge request that makes scheduling harder.
+\end{itemize}
+
+A starting script discussed conceptually is:
+
+\begin{verbatim}
+#!/bin/bash
+#SBATCH --job-name=alphaknot
+#SBATCH --partition=gpu
+#SBATCH --nodes=1
+#SBATCH --gres=gpu:2
+#SBATCH --cpus-per-task=50
+#SBATCH --mem=128G
+#SBATCH --time=24:00:00
+#SBATCH --output=logs/%x_%j.out
+
+module purge
+module load miniconda
+conda activate knot-env
+
+cd $SLURM_SUBMIT_DIR
+
+# IMPORTANT: the application itself must use the CPU allocation for
+# parallel self-play. Do not assume torchrun creates CPU self-play workers.
+python main.py
+\end{verbatim}
+
+However, this exact request may exclude some GPU nodes because several nodes have only 8 or 32 CPUs total. If queue time is poor, a more schedulable request is 2 GPUs + 32 CPUs. A100 nodes have 64 CPUs, but requesting resources merely to force an A100 may be unnecessary if training is cheap. The ideal script should be tuned to actual profiling.
+
+A previous 256 GB RAM request is probably more than necessary unless profiling demonstrates very high per-worker memory use. 128 GB is a safer starting point; even less may suffice. Measure peak resident memory while running many self-play workers before increasing the request.
+
+\section{Scavenge partition}
+
+The cluster exposes \texttt{scavenge} / \texttt{scavenge\_gpu} access to otherwise allocated or PI-owned resources when they are idle. Scavenge jobs are useful for opportunistic compute, especially embarrassingly parallel work, but they may be preempted/requeued/cancelled when the owner or higher-priority workload needs the node. For long AlphaZero training, scavenge is attractive only if checkpoint/restart is robust and frequent. The ordinary \texttt{gpu} partition is preferable for a stable long run; scavenge can be useful for experiments or extra self-play capacity.
+
+\section{Key engineering point: CPU/GPU separation}
+
+The corrected production performance model is:
+
+\begin{itemize}
+    \item scheduler-bounded CPU workers generate self-play games and perform independent CPU inference;
+    \item two GPUs perform DDP network training without per-worker CUDA model duplication.
+\end{itemize}
+
+The audit found that the legacy code constructed a CUDA model for every CPU worker and used the host CPU count rather than the SLURM allocation. The production code now loads one CPU model once in each worker and respects \texttt{SLURM\_CPUS\_PER\_TASK}. Profiling should still measure:
+
+\begin{enumerate}[label=\arabic*.]
+    \item game-state manipulation and Jones evaluation;
+    \item MCTS traversal and CPU neural inference;
+    \item complete self-play episode generation;
+    \item DDP network training and arena evaluation;
+    \item peak resident memory and CPU/GPU utilization.
+\end{enumerate}
+
+A potentially better architecture, if inference contention is significant, is many CPU MCTS/self-play workers feeding inference requests to one or two GPU inference processes that batch states. Do not implement this blindly; profile the current implementation first.
+
+\section{PD-code convention from knot theory}
+
+The mathematical audit should use the standard Planar Diagram convention used by KnotTheory/Knot Atlas/KnotInfo.
+
+For a crossing
+
+\[
+X[a,b,c,d],
+\]
+
+the tuple is read beginning with the incoming under-strand and proceeding counterclockwise around the crossing. Consequently:
+
+\[
+\boxed{(a,c)\text{ is the under-strand}},
+\qquad
+\boxed{(b,d)\text{ is the over-strand}}.
+\]
+
+This is positional information. The code should not sort the four labels and attempt to reconstruct which pairs form strands by numerical adjacency. The strand pairing is already encoded by tuple position.
+
+Thus logic of the form
+
+\begin{verbatim}
+strand_labels = sorted(...)
+# infer strand pairs from consecutive integer labels
+\end{verbatim}
+
+should be replaced, where appropriate, by
+
+\begin{verbatim}
+a, b, c, d = pd_entry
+under = (a, c)
+over  = (b, d)
+\end{verbatim}
+
+provided the repository indeed claims to use this standard PD convention everywhere.
+
+\section{Crossing sign convention}
+
+Under the standard signed PD convention discussed in the audit:
+
+\begin{itemize}
+    \item A positive crossing \(X_p[a,b,c,d]\) has the over-strand oriented \(d\to b\).
+    \item The opposite orientation gives the negative crossing \(X_m\).
+\end{itemize}
+
+For the project's single-component, consecutively edge-labeled PD codes, labels advance cyclically along the oriented knot:
+
+\[
+1\to2\to\cdots\to n\to1.
+\]
+
+Therefore an ordinary integer comparison such as
+
+\begin{verbatim}
+return crossing[1] > crossing[3]
+\end{verbatim}
+
+is mathematically unsafe/wrong because it ignores cyclic wraparound.
+
+The concrete example found in the audit was
+
+\[
+[7,1,8,14].
+\]
+
+Here the under-strand is \(7\to8\), while the over-strand is \(14\to1\) because labels wrap cyclically. Thus the over-strand has orientation \(d\to b\), so this is positive under the convention above. The test \texttt{1 > 14} incorrectly returns false.
+
+A safer implementation for the assumed single-component cyclic labeling is:
+
+\begin{verbatim}
+def crossing_sign(crossing, n_edges):
+    a, b, c, d = map(int, crossing)
+
+    next_b = (b % n_edges) + 1
+    next_d = (d % n_edges) + 1
+
+    if b == next_d:
+        return +1       # d -> b : positive / Xp
+
+    if d == next_b:
+        return -1       # b -> d : negative / Xm
+
+    raise ValueError(
+        f"Invalid or unexpected PD crossing: {crossing}"
+    )
+\end{verbatim}
+
+The explicit exception is important. If imported/generated PD codes do not obey the assumed consecutive single-component orientation convention, the program should fail loudly rather than silently assign a wrong sign.
+
+Codex should verify whether links/multiple components are ever permitted. If so, a single global \texttt{n\_edges} successor rule may need to be replaced by component-aware orientation data.
+
+\section{Crossing-change operation}
+
+A crossing change in PD notation can be represented by a one-place cyclic permutation of the four entries. The two relevant rotations are
+
+\[
+[a,b,c,d]\longrightarrow[d,a,b,c]
+\]
+
+or
+
+\[
+[a,b,c,d]\longrightarrow[b,c,d,a].
+\]
+
+The repository's basic idea of using these two rotations in \texttt{flip\_crossing()} is therefore consistent with the PD convention. The bug is selecting the appropriate rotation using a non-cyclic sign test.
+
+For a positive crossing, where the old over-strand is oriented \(d\to b\), switching over/under makes that strand the new under-strand. The new PD tuple should start at its incoming edge \(d\), giving
+
+\[
+\boxed{[d,a,b,c]}.
+\]
+
+For the negative case, the corresponding rotation is
+
+\[
+\boxed{[b,c,d,a]}.
+\]
+
+For the audited example
+
+\[
+[7,1,8,14],
+\]
+
+the correct switched crossing is therefore
+
+\[
+\boxed{[14,7,1,8]},
+\]
+
+not
+
+\[
+[1,8,14,7].
+\]
+
+Codex should locate every implementation of crossing flips, crossing signs, strand extraction, PD normalization/canonicalization, and game-action application and ensure they all use one consistent convention.
+
+\section{Jones invariant and terminal classification}
+
+The legacy implementation attempted to use SnapPy/Spherogram Jones and Alexander polynomial methods. In a standard pip environment those methods require Sage and prevented a self-play episode from finishing. The cleaned implementation instead computes the normalized Jones polynomial directly by exhaustive Kauffman-bracket smoothing. At seven crossings this requires only \(2^7=128\) states and is cached by PD code. Tests check the normalized polynomials of the unknot, trefoil, and figure-eight knot.
+
+Important caveat: the Jones polynomial is not known to detect the unknot in general. Equality with the unknot's polynomial must not be advertised as a general unknot-recognition theorem. The implementation therefore enforces a configured maximum validated crossing number and distinguishes between:
+
+\begin{itemize}
+    \item a bounded dataset/regime in which the implementation plus lookup/validation is known to distinguish all cases being used; and
+    \item a general mathematical claim that the invariant detects the unknot, which would be false.
+\end{itemize}
+
+Do not silently extend a crossing-number-specific empirical guarantee beyond the validated range. Raising the configured limit requires independent table/package validation.
+
+\section{Independent mathematical validation plan}
+
+Before retraining the AlphaZero agent, the entire game transition system should be validated independently. Otherwise the agent may become extremely good at a subtly incorrect game.
+
+For a fixed shadow with \(c\) crossings, enumerate all \(2^c\) over/under assignments whenever feasible. For the currently discussed seven-crossing case this is only
+
+\[
+2^7 = 128
+\]
+
+states, so exhaustive checking is trivial.
+
+For every assignment:
+
+\begin{enumerate}[label=\arabic*.]
+    \item Construct the PD code using the project's transition/action logic.
+    \item Check structural PD validity: every edge label appears exactly as required; strand pairings are consistent; orientations are consistent; no malformed crossing is produced.
+    \item Compute knot identity/invariants using the project's implementation.
+    \item Independently compute the same knot/invariants using a trusted external knot package/database where possible.
+    \item Compare the result after every individual crossing flip, not merely final game states.
+\end{enumerate}
+
+The test suite should include wraparound crossings such as \([7,1,8,14]\), because those expose precisely the bug that ordinary integer comparison misses.
+
+Property-based tests should also check that flipping the same crossing twice returns an equivalent/original PD state (modulo whatever canonicalization the code intentionally applies).
+
+\section{Literature/convention references used in the audit}
+
+The audit was based on standard PD-code descriptions, especially:
+
+\begin{itemize}
+    \item KnotInfo description of PD notation: \url{https://knotinfo.math.indiana.edu/descriptions/pd_notation.html}
+    \item Knot Atlas, ``Planar Diagrams'': \url{https://www.katlas.org/wiki/Planar_Diagrams}
+    \item Kauffman material discussing code representations/crossing changes: \url{https://homepages.math.uic.edu/~kauffman/MLinks.pdf}
+    \item Mastin, work formalizing planar diagram codes and their relation to link diagrams/Reidemeister moves: \url{https://arxiv.org/abs/1309.3288}
+\end{itemize}
+
+Codex should use these conventions as references but should also inspect exactly how the repository obtains/generates its PD codes. If an upstream package uses a different convention, conversions must be explicit rather than assumed.
+
+\section{Repository audit checklist and status}
+
+The August 2026 pass completed the transition, MCTS, checkpoint, multiprocessing, artifact, and small-shadow structural items below. Canonicalization across equivalent diagrams, broader independent invariant validation, and performance profiling remain open.
+
+\begin{enumerate}[label=\arabic*.]
+    \item Identify the authoritative game class and state representation.
+    \item Trace how initial PD codes are loaded/generated.
+    \item Document the exact PD convention assumed at every boundary.
+    \item Find every function that determines crossing sign.
+    \item Find every function that changes/flips a crossing.
+    \item Find every function that infers strand pairings.
+    \item Find every canonicalization/relabeling routine and ensure it preserves orientation and crossing information.
+    \item Audit legal-action generation.
+    \item Audit terminal-state detection and winner assignment.
+    \item Audit Jones calculations and document their validated crossing-number range.
+    \item Add exhaustive tests for all assignments of small shadows.
+    \item Add regression tests for the wraparound crossing bug.
+    \item Check MCTS state hashing/equality so equivalent/canonical states are handled consistently.
+    \item Check that neural graph construction does not accidentally discard over/under or orientation information required to distinguish game states.
+    \item Check that action indices remain stable/correct after any PD relabeling.
+    \item Audit checkpoint loading so \texttt{best.pth.tar} is not repeatedly/reset incorrectly.
+    \item Audit resume-vs-new-training behavior.
+    \item Profile self-play versus training and arena evaluation.
+    \item Make self-play worker count configurable and SLURM-aware.
+    \item Avoid assuming that \texttt{torchrun} distributes CPU self-play automatically.
+\end{enumerate}
+
+\section{Training strategy after correctness fixes}
+
+Do not launch a large training run until the PD/game audit passes. Once it does:
+
+\begin{enumerate}[label=\arabic*.]
+    \item Run a tiny deterministic smoke test.
+    \item Run exhaustive game-state correctness tests for small crossing numbers.
+    \item Run a short AlphaZero training job and verify learning curves and arena behavior.
+    \item Profile CPU and GPU utilization during self-play and training separately.
+    \item Increase self-play parallelism until CPU saturation, GPU-inference saturation, memory pressure, or diminishing returns appear.
+    \item Only then choose the production SLURM request.
+\end{enumerate}
+
+Given current evidence, a two-GPU / many-CPU single-node job is more appropriate than an eight-GPU multi-node job.
+
+\section{Longer-term representation-science goal}
+
+The neural network is not only a game-playing device. Once a competent policy/value network exists, save hidden representations for many knot/game states. Candidate analyses include:
+
+\begin{itemize}
+    \item embedding knot states by final-layer or intermediate GNN representations;
+    \item embedding whole knots by aggregating representations across game states or MCTS trajectories;
+    \item clustering knots by learned strategic similarity;
+    \item comparing neural distances with crossing number, knot family, Jones polynomial, Alexander polynomial, signature, determinant, hyperbolic/geometric quantities, etc.;
+    \item testing whether strategically similar knots share human-interpretable local crossing patterns or move sequences;
+    \item probing whether MCTS principal variations reveal reusable ``lemmas'' or tactical motifs;
+    \item using discovered motifs to formulate conjectures that can subsequently be proved mathematically.
+\end{itemize}
+
+A key scientific distinction should be maintained between ``the network solves these finite instances'' and ``the learned strategy suggests/proves a general theorem.'' Exhaustive computational verification can prove a finite collection of cases; general knot-theoretic claims require a mathematical argument or a formally justified reduction.
+
+\section{Immediate next priority}
+
+The PD-code transition and production-training defects found in the August 2026 audit have been patched and covered by regression tests. Before a large cluster run, the remaining priorities are:
+
+\begin{enumerate}[label=\arabic*.]
+    \item validate the Jones result for every active assignment against an independent knot table or Sage-based tool;
+    \item run a short two-GPU SLURM smoke job and confirm DDP checkpoint synchronization;
+    \item profile self-play, invariant evaluation, training, and arena phases separately;
+    \item record CPU/GPU utilization and peak worker memory before increasing the production allocation;
+    \item expand the PD/invariant test corpus before adding new shadows or raising the crossing bound.
+\end{enumerate}
+
+Only after the independent invariant comparison and cluster smoke job pass should a long production self-play run begin.
+
+\end{document}
