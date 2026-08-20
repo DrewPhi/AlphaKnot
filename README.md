@@ -61,6 +61,19 @@ For the two-GPU SLURM configuration:
 sbatch jobscript.sh
 ```
 
+On Yale Bouchet, first run the exact 7-crossing minimax baseline and then
+submit the short `gpu_devel` validation job:
+
+```bash
+python exact_solver.py
+sbatch jobscript_bouchet_smoke.sh
+```
+
+The exact solver evaluates all 2,187 partial crossing assignments. After
+training, `evaluate_exact.py` compares the checkpoint's policy and value at
+every nonterminal state with the minimax table. The smoke job is deliberately
+small; it validates the pipeline and should not be treated as a converged run.
+
 `torchrun` uses both GPUs for DDP training. Rank 0 uses CPU processes for
 self-play and arena games, bounded by `SLURM_CPUS_PER_TASK`. This avoids placing
 one model replica on a GPU for every CPU worker. Tune `selfplay_workers`, memory,

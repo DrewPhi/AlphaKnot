@@ -1,6 +1,10 @@
 import os
 
 
+def _env_int(name, default):
+    return int(os.environ.get(name, default))
+
+
 pd_codes = [
 #    	[[1,5,2,4],[3,1,4,6],[5,3,6,2]],
 #[[4,2,5,1],[8,6,1,5],[6,3,7,4],[2,7,3,8]],
@@ -20,28 +24,28 @@ pd_codes = [
 max_strand_label = 14  # PD edge labels run from 1 through 2 * crossings.
 max_validated_crossings = 7
 
-numIters = 1000  # Start with 100, scale up if needed.
-numEps = 100
-tempThreshold = 10
+numIters = _env_int("ALPHAKNOT_NUM_ITERS", 1000)
+numEps = _env_int("ALPHAKNOT_NUM_EPS", 100)
+tempThreshold = _env_int("ALPHAKNOT_TEMP_THRESHOLD", 10)
 updateThreshold = 0.55
 maxlenOfQueue = 50000
-numMCTSSims = 200
+numMCTSSims = _env_int("ALPHAKNOT_MCTS_SIMS", 200)
 cpuct = 1.0
-num_epochs = 10
+num_epochs = _env_int("ALPHAKNOT_EPOCHS", 10)
 
 checkpoint = './checkpoints/'
 saveIterCheckpoint = True
 load_model = False
 train_examples_path = None
-arenaCompare = 4
+arenaCompare = _env_int("ALPHAKNOT_ARENA_COMPARE", 4)
 knotter_first = True
-randomGames = 50
+randomGames = _env_int("ALPHAKNOT_RANDOM_GAMES", 50)
 resume_training = os.environ.get("ALPHAKNOT_RESUME", "0") == "1"
 random_play_fraction = 0  # 25% of self-play games use a random player
 selfplay_device = "cpu"
 arena_device = "cpu"
-selfplay_workers = 0  # 0 = use SLURM_CPUS_PER_TASK
-arena_workers = 0     # 0 = use SLURM_CPUS_PER_TASK
+selfplay_workers = _env_int("ALPHAKNOT_SELFPLAY_WORKERS", 0)  # 0 = allocated CPUs
+arena_workers = _env_int("ALPHAKNOT_ARENA_WORKERS", 0)        # 0 = allocated CPUs
 
 
 def validate():
