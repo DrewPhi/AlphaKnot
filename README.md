@@ -81,6 +81,9 @@ trains, and prints an explicit exhaustive `SOLVED: YES/NO` verdict, use:
 sbatch jobscript_bouchet_full.sh
 ```
 
+The optional SnapPy validation dependency is installed through the same Conda
+environment from PyPI; SageMath is not required for the production evaluator.
+
 `torchrun` uses both GPUs for DDP training. Rank 0 uses CPU processes for
 self-play and arena games, bounded by `SLURM_CPUS_PER_TASK`. This avoids placing
 one model replica on a GPU for every CPU worker. Tune `selfplay_workers`, memory,

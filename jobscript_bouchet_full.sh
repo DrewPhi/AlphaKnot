@@ -30,7 +30,8 @@ echo "node=$(hostname) gpus=${SLURM_GPUS_ON_NODE:-unknown} cpus=${SLURM_CPUS_PER
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 
 echo "=== Environment and sanity tests ==="
-python -m pip install -q -r requirements-dev.txt
+python -m pip install -q --upgrade -r requirements-dev.txt
+python -c 'import snappy; print("SnapPy", snappy.__version__)'
 python -m unittest discover -s tests -v
 python tests/smoke_multiprocessing.py
 python tests/smoke_arena.py
