@@ -10,6 +10,9 @@
 set -euo pipefail
 module reset
 module load miniconda/24.11.3
+# Bouchet batch jobs can inherit a system LD_LIBRARY_PATH.  Clear it so the
+# activated Conda environment resolves libstdc++/SQLite from its own runtime.
+unset LD_LIBRARY_PATH
 conda activate alphaknot
 
 export OMP_NUM_THREADS=1

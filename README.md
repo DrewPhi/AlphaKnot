@@ -83,6 +83,8 @@ sbatch jobscript_bouchet_full.sh
 
 The optional SnapPy validation dependency is installed through the same Conda
 environment from PyPI; SageMath is not required for the production evaluator.
+The Bouchet batch script clears inherited `LD_LIBRARY_PATH` after loading
+modules so SnapPy's SQLite extension uses the Conda C++ runtime.
 
 `torchrun` uses both GPUs for DDP training. Rank 0 uses CPU processes for
 self-play and arena games, bounded by `SLURM_CPUS_PER_TASK`. This avoids placing
