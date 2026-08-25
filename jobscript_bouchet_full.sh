@@ -14,6 +14,7 @@ module load miniconda/24.11.3
 # activated Conda environment resolves libstdc++/SQLite from its own runtime.
 unset LD_LIBRARY_PATH
 conda activate alphaknot
+export LD_LIBRARY_PATH="$CONDA_PREFIX/lib"
 
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
