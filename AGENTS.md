@@ -45,6 +45,10 @@ Use evidence in this order:
 Never describe a model as perfect, solved, or near-perfect using only arena or
 random-play results.
 
+`capacity_test.py` uses exact labels for training and evaluation. Report its
+result only as representational capacity or memorization; do not describe it as
+self-play discovery or generalization.
+
 ## Required checks
 
 Run from the repository root:
@@ -103,6 +107,7 @@ a test that fails under the old behavior.
 - `knot_invariants.py`: exhaustive small-knot Jones evaluator.
 - `exact_solver.py`: complete minimax ground truth.
 - `evaluate_exact.py`: exhaustive learned-model evaluation.
+- `capacity_test.py`: exact-table architecture capacity experiment.
 - `mcts.py`, `coach.py`, `arena.py`: search, training, and match evaluation.
 - `knot_graph_nnet.py`: graph policy/value network.
 - `jobscript_bouchet_full.sh`: end-to-end Bouchet validation and training.

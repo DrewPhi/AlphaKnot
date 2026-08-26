@@ -78,6 +78,15 @@ training, `evaluate_exact.py` compares the checkpoint's policy and value at
 every nonterminal state with the minimax table. The smoke job is deliberately
 small; it validates the pipeline and should not be treated as a converged run.
 
+Before changing the architecture, test whether it can represent the exact
+solution at all. This intentionally trains and evaluates on the complete table,
+so it is a capacity/memorization result rather than a self-play result:
+
+```bash
+python capacity_test.py --device cuda
+sbatch jobscript_bouchet_capacity.sh
+```
+
 For a single Bouchet job that installs test-only dependencies, runs all tests,
 trains, and prints an explicit exhaustive `SOLVED: YES/NO` verdict, use:
 
