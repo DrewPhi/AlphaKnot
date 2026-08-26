@@ -39,6 +39,11 @@ class KnotGraphNet(nn.Module):
         # Node/strand embeddings
         self.embed_strand = nn.Embedding(max_label + 1, embed_dim)
         self.embed_pos = nn.Embedding(4, embed_dim)
+        # A PD crossing is an ordered tuple (a, b, c, d).  Keep the four
+        # position-specific representations separate until after concatenation:
+        # summing E(label) + P(position) over the tuple makes the positional
+        # contribution constant and therefore erases the PD ordering.
+        self.crossing_projection = nn.Linear(4 * embed_dim, hidden_dim)
 
         # Edge feature embedding
         edge_sign_dim = 8
@@ -72,18 +77,22 @@ class KnotGraphNet(nn.Module):
         self.value_fc1 = nn.Linear(hidden_dim, hidden_dim)
         self.value_fc2 = nn.Linear(hidden_dim, 1)
 
-    def forward(self, data):
-        batch = data.batch if hasattr(data, 'batch') else None
-
-        node_ids = data.x[:, :4].long()
+    def encode_crossings(self, node_ids):
+        """Encode ordered PD tuples without treating their entries as a set."""
         N = node_ids.size(0)
         device = node_ids.device
 
         pos_idx = torch.arange(4, device=device).expand(N, 4)
         strand_embeds = self.embed_strand(node_ids)
         pos_embeds = self.embed_pos(pos_idx)
-        strand_embeds = strand_embeds + pos_embeds
-        node_feat = strand_embeds.sum(dim=1)
+        ordered_slots = strand_embeds + pos_embeds
+        return self.crossing_projection(ordered_slots.reshape(N, -1))
+
+    def forward(self, data):
+        batch = data.batch if hasattr(data, 'batch') else None
+
+        node_ids = data.x[:, :4].long()
+        node_feat = self.encode_crossings(node_ids)
 
         x = node_feat
 
