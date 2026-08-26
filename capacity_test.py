@@ -112,6 +112,12 @@ def main():
     parser.add_argument("--learning-rate", type=float, default=3e-3)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(
+        "--architecture",
+        choices=("graph", "crossing-mlp"),
+        default="graph",
+    )
+    parser.add_argument("--hidden-dim", type=int, default=64)
+    parser.add_argument(
         "--checkpoint", default="checkpoints/capacity_exact.pth.tar"
     )
     parser.add_argument("--device", default="cuda")
@@ -142,7 +148,12 @@ def main():
     )
     eval_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
 
-    network = NNetWrapper(game, device=str(device))
+    network = NNetWrapper(
+        game,
+        hidden_dim=args.hidden_dim,
+        device=str(device),
+        architecture=args.architecture,
+    )
     optimizer = torch.optim.AdamW(
         network.model.parameters(), lr=args.learning_rate, weight_decay=1e-5
     )
@@ -155,7 +166,8 @@ def main():
 
     print(
         f"Capacity dataset: {len(dataset)} nonterminal states; "
-        f"device={device}; seed={args.seed}"
+        f"device={device}; seed={args.seed}; "
+        f"architecture={args.architecture}; hidden_dim={args.hidden_dim}"
     )
     best_score = None
     best_metrics = None

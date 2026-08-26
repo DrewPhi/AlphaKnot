@@ -146,13 +146,66 @@ class KnotGraphNet(nn.Module):
         return policy, v
 
 
+class CrossingStateMLP(nn.Module):
+    """Fixed-shadow control model over ordered categorical crossing states.
+
+    This intentionally ignores graph connectivity.  It tests whether the exact
+    targets and optimization pipeline can fit the complete seven-crossing game
+    when every dynamic state variable is directly accessible.
+    """
+
+    def __init__(self, game, hidden_dim=256, state_embed_dim=16):
+        super().__init__()
+        self.action_size = game.getActionSize()
+        self.num_nodes = len(game.initial_pd_code)
+        self.embed_crossing_state = nn.Embedding(3, state_embed_dim)
+        input_dim = self.num_nodes * state_embed_dim
+        self.trunk = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+        )
+        self.policy_head = nn.Linear(hidden_dim, self.action_size)
+        self.value_head = nn.Linear(hidden_dim, 1)
+
+    def forward(self, data):
+        crossing_states = data.x[:, 4].long()
+        if crossing_states.numel() % self.num_nodes != 0:
+            raise ValueError(
+                "Crossing-state MLP requires a fixed number of nodes per graph"
+            )
+        crossing_states = crossing_states.reshape(-1, self.num_nodes)
+        features = self.embed_crossing_state(crossing_states).flatten(1)
+        hidden = self.trunk(features)
+        return self.policy_head(hidden), torch.tanh(self.value_head(hidden))
+
+
 class NNetWrapper:
-    def __init__(self, game, hidden_dim=64, num_heads=8, num_layers=6, dropout=0.1, device=None):
+    def __init__(
+        self,
+        game,
+        hidden_dim=64,
+        num_heads=8,
+        num_layers=6,
+        dropout=0.1,
+        device=None,
+        architecture="graph",
+    ):
         """
         Wrapper for the KnotGraphNet to interface with AlphaZero-General training.
         """
         self.device = torch.device(device if device else ('cuda' if torch.cuda.is_available() else 'cpu'))
-        self.model = KnotGraphNet(game, hidden_dim, num_heads, num_layers, dropout).to(self.device)
+        self.architecture = architecture
+        if architecture == "graph":
+            model = KnotGraphNet(game, hidden_dim, num_heads, num_layers, dropout)
+        elif architecture == "crossing-mlp":
+            model = CrossingStateMLP(game, hidden_dim=hidden_dim)
+        else:
+            raise ValueError(f"Unknown architecture: {architecture}")
+        self.model = model.to(self.device)
         self.action_size = game.getActionSize()
         self.optimizer = optim.Adam(self.model.parameters(), lr=getattr(game, 'learning_rate', 0.001))
         print("[Device]", self.device)
@@ -235,13 +288,21 @@ class NNetWrapper:
         torch.save({
             'state_dict': self.model.state_dict(),
             'optimizer': self.optimizer.state_dict(),
-            'latest_loss': getattr(self, 'latest_loss', float('inf'))
+            'latest_loss': getattr(self, 'latest_loss', float('inf')),
+            'architecture': self.architecture,
         }, filepath)
         print(f"Checkpoint saved at {filepath}")
 
     def load_checkpoint(self, filename, load_optimizer=True):
         assert os.path.isfile(filename), f"No model found at {filename}"
         checkpoint = torch.load(filename, map_location=self.device)
+
+        saved_architecture = checkpoint.get('architecture', 'graph')
+        if saved_architecture != self.architecture:
+            raise ValueError(
+                f"Checkpoint architecture is {saved_architecture!r}, but "
+                f"wrapper architecture is {self.architecture!r}"
+            )
 
         # Get the state dict
         state_dict = checkpoint['state_dict']

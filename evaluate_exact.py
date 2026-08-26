@@ -25,13 +25,24 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint", default="checkpoints/best.pth.tar")
     parser.add_argument("--device", default="cpu")
+    parser.add_argument(
+        "--architecture",
+        choices=("graph", "crossing-mlp"),
+        default="graph",
+    )
+    parser.add_argument("--hidden-dim", type=int, default=64)
     args = parser.parse_args()
 
     config.validate()
     game = KnotGraphGame()
     game.getInitBoard()
     solver = ExactSolver(game.initial_pd_code)
-    network = NNetWrapper(game, device=args.device)
+    network = NNetWrapper(
+        game,
+        hidden_dim=args.hidden_dim,
+        device=args.device,
+        architecture=args.architecture,
+    )
     network.load_checkpoint(args.checkpoint, load_optimizer=False)
 
     by_depth = defaultdict(lambda: {"states": 0, "top1": 0, "mass": 0.0, "value": 0})
