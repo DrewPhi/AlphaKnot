@@ -8,6 +8,10 @@ This branch contains only the production GPU-training implementation. Historical
 experiments, checkpoints, and training examples are retained on the archival Git
 branch and intentionally excluded from `main`.
 
+Contributor and coding-agent rules live in [`AGENTS.md`](AGENTS.md). Development
+workflow is in [`CONTRIBUTING.md`](CONTRIBUTING.md), and reproducible scientific
+results are tracked in [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md).
+
 ## Supported mathematical convention
 
 The game currently accepts one-component PD codes with consecutive, one-based
