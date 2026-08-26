@@ -71,3 +71,24 @@ Preserving the ordered PD tuple was mathematically necessary but did not remove
 the capacity ceiling. The unchanged optimal-action probability mass and nearly
 flat exact metrics point to the dynamic resolution-state representation or its
 use by the network as the next component to isolate.
+
+### Direct crossing-state capacity run 23766423
+
+- Date: 2026-08-26
+- Commit: `5a785c6`
+- Cluster: Yale Bouchet, 1 RTX 5000 Ada GPU
+- Change: attach `unresolved`, `original`, or `switched` directly to every
+  four-valent crossing node and embed that state in the network
+- Configuration: all 2,059 nonterminal states, 400 epochs, batch size 128,
+  learning rate 0.003, seed 0
+- Elapsed time: 4 minutes 25 seconds
+- Optimal top-policy action: 72.03%
+- Mean probability mass on optimal actions: 71.44%
+- Exact value-sign accuracy: 65.32%
+- Certified capacity-solved verdict: **NO**
+
+The explicit state was available to the network but did not remove the
+collapse: optimal policy mass remained at the uniform-legal baseline and value
+accuracy remained near the constant-majority baseline. A non-graph MLP over the
+seven categorical crossing states is the next control needed to distinguish a
+training-pipeline defect from a graph-architecture failure.
