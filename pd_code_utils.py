@@ -28,7 +28,7 @@ def graph_to_dict(graph_data):
     - 'nodes': list of PD code tuples
     - 'edges': list of (source_node, target_node, strand_label, sign)
     """
-    nodes = [tuple(map(int, node.tolist())) for node in graph_data.x]
+    nodes = [tuple(map(int, node[:4].tolist())) for node in graph_data.x]
     idx_to_node = {idx: node for idx, node in enumerate(nodes)}
 
     edges = []

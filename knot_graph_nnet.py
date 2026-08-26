@@ -39,6 +39,7 @@ class KnotGraphNet(nn.Module):
         # Node/strand embeddings
         self.embed_strand = nn.Embedding(max_label + 1, embed_dim)
         self.embed_pos = nn.Embedding(4, embed_dim)
+        self.embed_crossing_state = nn.Embedding(3, hidden_dim)
         # A PD crossing is an ordered tuple (a, b, c, d).  Keep the four
         # position-specific representations separate until after concatenation:
         # summing E(label) + P(position) over the tuple makes the positional
@@ -92,7 +93,11 @@ class KnotGraphNet(nn.Module):
         batch = data.batch if hasattr(data, 'batch') else None
 
         node_ids = data.x[:, :4].long()
-        node_feat = self.encode_crossings(node_ids)
+        crossing_state = data.x[:, 4].long()
+        node_feat = (
+            self.encode_crossings(node_ids)
+            + self.embed_crossing_state(crossing_state)
+        )
 
         x = node_feat
 

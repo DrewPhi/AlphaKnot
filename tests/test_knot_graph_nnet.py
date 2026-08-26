@@ -42,6 +42,28 @@ class OrderedPDCrossingEncodingTests(unittest.TestCase):
             permuted_encoding[0, 0].item(),
         )
 
+    def test_forward_uses_direct_crossing_resolution_state(self):
+        game = KnotGraphGame()
+        unresolved = game.getInitBoard()
+        resolved, _ = game.getNextState(unresolved, 1, 0)
+        model = KnotGraphNet(
+            game,
+            hidden_dim=8,
+            num_heads=1,
+            num_layers=1,
+            dropout=0.0,
+        )
+        model.eval()
+
+        with torch.no_grad():
+            model.embed_crossing_state.weight.zero_()
+            model.embed_crossing_state.weight[1].fill_(1.0)
+            unresolved_policy, unresolved_value = model(unresolved)
+            resolved_policy, resolved_value = model(resolved)
+
+        self.assertFalse(torch.equal(unresolved_policy, resolved_policy))
+        self.assertFalse(torch.equal(unresolved_value, resolved_value))
+
 
 if __name__ == "__main__":
     unittest.main()

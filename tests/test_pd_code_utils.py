@@ -39,6 +39,17 @@ class PDCodeTests(unittest.TestCase):
 
         self.assertEqual(pd_code_from_graph(changed)[3], [14, 7, 1, 8])
 
+    def test_action_attaches_resolution_state_to_crossing_node(self):
+        game = KnotGraphGame()
+        board = game.getInitBoard()
+
+        kept, _ = game.getNextState(board, 1, 0)
+        switched, _ = game.getNextState(board, 1, 1)
+
+        self.assertEqual(kept.x[:, 4].tolist(), [1, 0, 0, 0, 0, 0, 0])
+        self.assertEqual(switched.x[:, 4].tolist(), [2, 0, 0, 0, 0, 0, 0])
+        self.assertEqual(KnotGraphGame.reconstruct_pd_code(kept), game.pd_code)
+
     def test_all_128_assignments_produce_valid_snapPy_pd_codes(self):
         game = KnotGraphGame()
         initial = game.getInitBoard()

@@ -24,7 +24,12 @@ class KnotGraphGame:
         nodes = [tuple(crossing) for crossing in pd_code]
         node_map = {node: i for i, node in enumerate(nodes)}
 
-        x = torch.tensor(pd_code, dtype=torch.float)
+        # Node columns 0:4 are the ordered PD tuple.  Column 4 is the crossing
+        # resolution state: 0 unresolved, 1 original, 2 switched.
+        x = torch.tensor(
+            [list(crossing) + [0] for crossing in pd_code],
+            dtype=torch.float,
+        )
 
         edge_index = []
         edge_attr = []
@@ -58,7 +63,7 @@ class KnotGraphGame:
 
     def getBoardSize(self):
         # (node feature dimension, max number of nodes)
-        return (4, None)
+        return (5, None)
 
     def getActionSize(self):
         # Each action is: choose a node, then apply one of 2 signs
@@ -85,12 +90,13 @@ class KnotGraphGame:
                 outgoing_edges.append((i, int(new_board.edge_attr[i][0])))  # (edge idx, strand label)
         # PD tuple position defines the strands: (a, c) is under and (b, d)
         # is over.  Do not reconstruct this information by sorting labels.
-        pd_entry = list(map(int, new_board.x[node_idx].tolist()))
+        pd_entry = list(map(int, new_board.x[node_idx, :4].tolist()))
         a, b, c, d = pd_entry
         original_under = (a, c)
         original_over = (b, d)
 
         if action % 2 == 0:  # keep the original crossing
+            new_board.x[node_idx, 4] = 1
             sign_map = {
                 a: STRAND_UNDER,
                 c: STRAND_UNDER,
@@ -98,6 +104,7 @@ class KnotGraphGame:
                 d: STRAND_OVER,
             }
         else:  # crossing change
+            new_board.x[node_idx, 4] = 2
             sign_map = {
                 a: STRAND_OVER,
                 c: STRAND_OVER,
@@ -144,7 +151,7 @@ class KnotGraphGame:
 
     @staticmethod
     def reconstruct_pd_code(data: Data):
-        return [list(map(int, node.tolist())) for node in data.x]
+        return [list(map(int, node[:4].tolist())) for node in data.x]
 
 
     def getGameEnded(self, board, player):
