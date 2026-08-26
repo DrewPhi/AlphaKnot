@@ -34,3 +34,40 @@ artifacts remain outside Git.
 
 This run validates the end-to-end pipeline. It is not evidence of perfect play
 and does not pass the release gate for scaling to larger shadows.
+
+### Exact-table capacity run 23748144
+
+- Date: 2026-08-26
+- Commit: `1a035b5`
+- Cluster: Yale Bouchet, 1 RTX 5000 Ada GPU
+- Configuration: all 2,059 nonterminal states, 400 epochs, batch size 128,
+  learning rate 0.003, seed 0
+- Elapsed time: 3 minutes 49 seconds
+- Optimal top-policy action: 71.49%
+- Mean probability mass on optimal actions: 71.44%
+- Exact value-sign accuracy: 65.42%
+- Certified capacity-solved verdict: **NO**
+
+This supervised exact-table run showed that the original architecture could not
+even memorize the fixed game's complete solution, separating its capacity or
+optimization failure from AlphaZero self-play and search.
+
+### Ordered-PD capacity run 23760015
+
+- Date: 2026-08-26
+- Commit: `858684c`
+- Cluster: Yale Bouchet, 1 RTX 5000 Ada GPU
+- Change: concatenate the four crossing-slot embeddings in PD order before
+  projection instead of summing them
+- Configuration: all 2,059 nonterminal states, 400 epochs, batch size 128,
+  learning rate 0.003, seed 0
+- Elapsed time: 3 minutes 45 seconds
+- Optimal top-policy action: 71.69%
+- Mean probability mass on optimal actions: 71.44%
+- Exact value-sign accuracy: 65.37%
+- Certified capacity-solved verdict: **NO**
+
+Preserving the ordered PD tuple was mathematically necessary but did not remove
+the capacity ceiling. The unchanged optimal-action probability mass and nearly
+flat exact metrics point to the dynamic resolution-state representation or its
+use by the network as the next component to isolate.
