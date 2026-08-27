@@ -92,3 +92,25 @@ collapse: optimal policy mass remained at the uniform-legal baseline and value
 accuracy remained near the constant-majority baseline. A non-graph MLP over the
 seven categorical crossing states is the next control needed to distinguish a
 training-pipeline defect from a graph-architecture failure.
+
+### Crossing-state MLP capacity run 23775537
+
+- Date: 2026-08-26
+- Commit: `2c40a13`
+- Cluster: Yale Bouchet, 1 RTX 5000 Ada GPU
+- Architecture: three-layer, width-256 MLP over the ordered seven categorical
+  crossing states, with separate policy and value heads
+- Configuration: all 2,059 nonterminal states, maximum 400 epochs, batch size
+  128, learning rate 0.003, seed 0
+- Solved at epoch: 38
+- Elapsed time: 20 seconds, including independent exhaustive evaluation
+- Optimal top-policy action: 100.00%
+- Mean probability mass on optimal actions: 99.60%
+- Exact value-sign accuracy: 100.00%
+- Certified capacity-solved verdict: **YES**
+
+This is a supervised memorization/capacity result, not self-play discovery or
+generalization. It validates the exact targets, crossing-state data, batching,
+losses, and optimizer. In contrast with the graph runs, it isolates the
+remaining capacity failure to the graph model's representation, message
+passing, or readout path.
