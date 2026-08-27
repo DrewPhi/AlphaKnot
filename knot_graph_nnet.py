@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch_geometric.data import Data
 from torch_geometric.nn import TransformerConv, global_mean_pool
+from torch_geometric.utils import to_dense_batch
 import knot_graph_game as KnotGraphGame
 import config
 from pd_code_utils import deserialize_graph
@@ -183,6 +184,166 @@ class CrossingStateMLP(nn.Module):
         return self.policy_head(hidden), torch.tanh(self.value_head(hidden))
 
 
+class PortRelationLayer(nn.Module):
+    """Typed message passing on the four half-edges of every PD crossing."""
+
+    def __init__(self, hidden_dim, dropout):
+        super().__init__()
+        self.self_linear = nn.Linear(hidden_dim, hidden_dim)
+        self.cyclic_next_linear = nn.Linear(hidden_dim, hidden_dim, bias=False)
+        self.cyclic_prev_linear = nn.Linear(hidden_dim, hidden_dim, bias=False)
+        self.opposite_linear = nn.Linear(hidden_dim, hidden_dim, bias=False)
+        self.arc_linear = nn.Linear(hidden_dim, hidden_dim, bias=False)
+        self.output_linear = nn.Linear(hidden_dim, hidden_dim)
+        self.norm = nn.LayerNorm(hidden_dim)
+        self.dropout = dropout
+
+    def forward(self, ports, cyclic_next, cyclic_prev, opposite, arc_peer):
+        messages = (
+            self.self_linear(ports)
+            + self.cyclic_next_linear(ports[cyclic_next])
+            + self.cyclic_prev_linear(ports[cyclic_prev])
+            + self.opposite_linear(ports[opposite])
+            + self.arc_linear(ports[arc_peer])
+        )
+        messages = self.output_linear(F.gelu(messages))
+        messages = F.dropout(messages, p=self.dropout, training=self.training)
+        return self.norm(ports + messages)
+
+
+class PortGraphTransformerNet(nn.Module):
+    """PD-native local half-edge encoder plus global crossing attention."""
+
+    def __init__(
+        self,
+        game,
+        hidden_dim=128,
+        num_heads=8,
+        num_layers=4,
+        dropout=0.1,
+        num_port_layers=4,
+    ):
+        super().__init__()
+        if hidden_dim % num_heads != 0:
+            raise ValueError("hidden_dim must be divisible by num_heads")
+        self.action_size = game.getActionSize()
+        self.num_nodes = len(game.initial_pd_code)
+        self.hidden_dim = hidden_dim
+        self.embed_slot = nn.Embedding(4, hidden_dim)
+        self.embed_crossing_state = nn.Embedding(3, hidden_dim)
+        self.embed_player = nn.Embedding(2, hidden_dim)
+        self.port_layers = nn.ModuleList(
+            PortRelationLayer(hidden_dim, dropout)
+            for _ in range(num_port_layers)
+        )
+        self.crossing_projection = nn.Sequential(
+            nn.Linear(4 * hidden_dim, hidden_dim),
+            nn.GELU(),
+            nn.LayerNorm(hidden_dim),
+        )
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=hidden_dim,
+            nhead=num_heads,
+            dim_feedforward=4 * hidden_dim,
+            dropout=dropout,
+            activation="gelu",
+            batch_first=True,
+            norm_first=True,
+        )
+        self.global_transformer = nn.TransformerEncoder(
+            encoder_layer,
+            num_layers=num_layers,
+            norm=nn.LayerNorm(hidden_dim),
+        )
+        self.graph_token = nn.Parameter(torch.zeros(1, 1, hidden_dim))
+        nn.init.normal_(self.graph_token, std=0.02)
+        self.policy_head = nn.Linear(hidden_dim, 2)
+        self.value_head = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, 1),
+        )
+
+    @staticmethod
+    def _relation_indices(pd_labels, crossing_batch):
+        """Return port-neighbor indices; PD integers only establish arc pairs."""
+        device = pd_labels.device
+        num_crossings = pd_labels.size(0)
+        port_ids = torch.arange(4 * num_crossings, device=device).reshape(-1, 4)
+        cyclic_next = port_ids[:, [1, 2, 3, 0]].reshape(-1)
+        cyclic_prev = port_ids[:, [3, 0, 1, 2]].reshape(-1)
+        opposite = port_ids[:, [2, 3, 0, 1]].reshape(-1)
+        labels = pd_labels.reshape(-1)
+        port_batch = crossing_batch.repeat_interleave(4)
+        label_stride = labels.max() + 1
+        grouping_key = port_batch * label_stride + labels
+        sorted_keys, order = torch.sort(grouping_key)
+        if sorted_keys.numel() % 2 != 0 or not bool(
+            sorted_keys[0::2].eq(sorted_keys[1::2]).all()
+        ):
+            raise ValueError(
+                "Every PD arc label must occur exactly twice within a graph"
+            )
+        arc_peer = torch.empty_like(order)
+        arc_peer[order[0::2]] = order[1::2]
+        arc_peer[order[1::2]] = order[0::2]
+        return cyclic_next, cyclic_prev, opposite, arc_peer
+
+    def forward(self, data):
+        crossing_batch = (
+            data.batch
+            if hasattr(data, "batch") and data.batch is not None
+            else torch.zeros(data.x.size(0), dtype=torch.long, device=data.x.device)
+        )
+        pd_labels = data.x[:, :4].long()
+        crossing_state = data.x[:, 4].long()
+        relations = self._relation_indices(pd_labels, crossing_batch)
+
+        slots = torch.arange(4, device=data.x.device).expand(data.x.size(0), 4)
+        ports = (
+            self.embed_slot(slots)
+            + self.embed_crossing_state(crossing_state).unsqueeze(1)
+        ).reshape(-1, self.hidden_dim)
+        for layer in self.port_layers:
+            ports = layer(ports, *relations)
+
+        crossings = self.crossing_projection(
+            ports.reshape(data.x.size(0), 4 * self.hidden_dim)
+        )
+        dense_crossings, valid_crossings = to_dense_batch(
+            crossings, crossing_batch
+        )
+        dense_states, _ = to_dense_batch(crossing_state, crossing_batch)
+        resolved_count = ((dense_states != 0) & valid_crossings).sum(dim=1)
+        player_index = resolved_count.remainder(2)
+        graph_token = self.graph_token.expand(dense_crossings.size(0), -1, -1)
+        graph_token = graph_token + self.embed_player(player_index).unsqueeze(1)
+        sequence = torch.cat([graph_token, dense_crossings], dim=1)
+        padding_mask = torch.cat(
+            [
+                torch.zeros(
+                    (valid_crossings.size(0), 1),
+                    dtype=torch.bool,
+                    device=valid_crossings.device,
+                ),
+                ~valid_crossings,
+            ],
+            dim=1,
+        )
+        encoded = self.global_transformer(
+            sequence, src_key_padding_mask=padding_mask
+        )
+
+        policy_by_crossing = self.policy_head(encoded[:, 1:])
+        if policy_by_crossing.size(1) != self.num_nodes:
+            raise ValueError(
+                "Current AlphaZero wrapper requires the configured crossing count"
+            )
+        policy = policy_by_crossing.reshape(-1, self.action_size)
+        value = torch.tanh(self.value_head(encoded[:, 0]))
+        return policy, value
+
+
 class NNetWrapper:
     def __init__(
         self,
@@ -203,6 +364,14 @@ class NNetWrapper:
             model = KnotGraphNet(game, hidden_dim, num_heads, num_layers, dropout)
         elif architecture == "crossing-mlp":
             model = CrossingStateMLP(game, hidden_dim=hidden_dim)
+        elif architecture == "port-graph-transformer":
+            model = PortGraphTransformerNet(
+                game,
+                hidden_dim=hidden_dim,
+                num_heads=num_heads,
+                num_layers=num_layers,
+                dropout=dropout,
+            )
         else:
             raise ValueError(f"Unknown architecture: {architecture}")
         self.model = model.to(self.device)

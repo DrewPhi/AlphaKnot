@@ -27,7 +27,7 @@ def main():
     parser.add_argument("--device", default="cpu")
     parser.add_argument(
         "--architecture",
-        choices=("graph", "crossing-mlp"),
+        choices=("graph", "crossing-mlp", "port-graph-transformer"),
         default="graph",
     )
     parser.add_argument("--hidden-dim", type=int, default=64)

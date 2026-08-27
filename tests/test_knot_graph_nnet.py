@@ -3,7 +3,11 @@ import unittest
 import torch
 
 from knot_graph_game import KnotGraphGame
-from knot_graph_nnet import CrossingStateMLP, KnotGraphNet
+from knot_graph_nnet import (
+    CrossingStateMLP,
+    KnotGraphNet,
+    PortGraphTransformerNet,
+)
 
 
 class OrderedPDCrossingEncodingTests(unittest.TestCase):
@@ -79,6 +83,48 @@ class CrossingStateMLPTests(unittest.TestCase):
         self.assertEqual(tuple(policy.shape), (2, game.getActionSize()))
         self.assertEqual(tuple(value.shape), (2, 1))
         self.assertFalse(torch.equal(policy[0], policy[1]))
+
+
+class PortGraphTransformerTests(unittest.TestCase):
+    def _model(self, game):
+        model = PortGraphTransformerNet(
+            game,
+            hidden_dim=32,
+            num_heads=4,
+            num_layers=2,
+            num_port_layers=2,
+            dropout=0.0,
+        )
+        model.eval()
+        return model
+
+    def test_batched_output_shapes(self):
+        from torch_geometric.data import Batch
+
+        game = KnotGraphGame()
+        first = game.getInitBoard()
+        second, _ = game.getNextState(first, 1, 0)
+        policy, value = self._model(game)(Batch.from_data_list([first, second]))
+
+        self.assertEqual(tuple(policy.shape), (2, game.getActionSize()))
+        self.assertEqual(tuple(value.shape), (2, 1))
+
+    def test_arc_label_renumbering_does_not_change_predictions(self):
+        game = KnotGraphGame()
+        board = game.getInitBoard()
+        relabeled = board.clone()
+        permutation = torch.tensor(
+            [0, 8, 3, 12, 5, 14, 1, 10, 7, 2, 13, 6, 11, 4, 9]
+        )
+        relabeled.x[:, :4] = permutation[relabeled.x[:, :4].long()]
+        model = self._model(game)
+
+        with torch.no_grad():
+            policy, value = model(board)
+            relabeled_policy, relabeled_value = model(relabeled)
+
+        self.assertTrue(torch.allclose(policy, relabeled_policy, atol=1e-6))
+        self.assertTrue(torch.allclose(value, relabeled_value, atol=1e-6))
 
 
 if __name__ == "__main__":
