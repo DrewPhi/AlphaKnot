@@ -5,18 +5,30 @@ human contributors and coding agents.
 
 ## Current milestone
 
-Do not broaden the production game to larger or mixed knot shadows until the
-configured seven-crossing game is solved by the learned agent under the exact
-evaluation in `evaluate_exact.py`.
+The fixed seven-crossing architecture-capacity gate is complete. The tuned
+PD-position port transformer reached exhaustive `SOLVED: YES` on all 2,059
+nonterminal states in Bouchet job `23989965`. This was supervised exact-table
+training: it proves representational capacity, not AlphaZero self-play discovery
+or generalization.
 
-For this milestone, `SOLVED: YES` means both of the following hold on every one
-of the 2,059 nonterminal states:
+The current milestone is a single shared model over a versioned corpus of
+seven-crossing, oriented, one-component PD shadows. Complete the seven-crossing
+dataset, variable-corpus training path, and held-out evaluation before adding
+eight-crossing shadows to production training. Follow `docs/ROADMAP.md` and
+`docs/STRATEGY_EMBEDDINGS.md`.
 
-1. The network's highest-probability legal action is minimax-optimal.
-2. The sign of the network value agrees with the exact minimax value.
+For every shadow with an exact table, exact `SOLVED: YES` still means both:
+
+1. The highest-probability legal action is minimax-optimal at every nonterminal
+   state.
+2. The value sign agrees with exact minimax at every nonterminal state.
 
 Arena wins or wins against random players are useful diagnostics, but they are
 not evidence that the game is solved. The exact table is authoritative.
+
+Do not call a shared model generalized merely because it fits a mixed training
+corpus. Generalization claims require frozen shadow- or knot-type-disjoint test
+splits and must report whether exact labels were used during training.
 
 ## Mathematical invariants
 
@@ -77,6 +89,12 @@ a test that fails under the old behavior.
 - Do not compare experiments whose PD code, player roles, exact evaluator, or
   solved criterion changed without saying so explicitly.
 - Preserve seeds and environment overrides when reproducibility matters.
+- Version corpus manifests and frozen train/validation/test splits. Canonical
+  relabelings or alternate diagrams of one object must not leak across a split.
+- Distinguish the object being studied: a PD shadow game, a particular diagram,
+  or a knot type. Strategy belongs directly to the game on a shadow.
+- Use the canonical model-independent probe panels in
+  `docs/STRATEGY_EMBEDDINGS.md` when comparing activation diffusion operators.
 
 ## Bouchet workflow
 
@@ -111,6 +129,8 @@ a test that fails under the old behavior.
 - `mcts.py`, `coach.py`, `arena.py`: search, training, and match evaluation.
 - `knot_graph_nnet.py`: graph policy/value network.
 - `jobscript_bouchet_full.sh`: end-to-end Bouchet validation and training.
+- `docs/ROADMAP.md`: staged generalization and paper milestones.
+- `docs/STRATEGY_EMBEDDINGS.md`: activation and MCTS diffusion protocol.
 
 ## Before merging
 

@@ -10,7 +10,24 @@ branch and intentionally excluded from `main`.
 
 Contributor and coding-agent rules live in [`AGENTS.md`](AGENTS.md). Development
 workflow is in [`CONTRIBUTING.md`](CONTRIBUTING.md), and reproducible scientific
-results are tracked in [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md).
+results are tracked in [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md). The active
+generalization milestones are in [`docs/ROADMAP.md`](docs/ROADMAP.md), and the
+paper's representation-analysis protocol is in
+[`docs/STRATEGY_EMBEDDINGS.md`](docs/STRATEGY_EMBEDDINGS.md).
+
+## Project status
+
+The tuned PD-position port transformer has passed the fixed seven-crossing
+supervised capacity gate: it reproduced every exact policy decision and value
+sign across 2,059 nonterminal states. This establishes architecture capacity,
+not self-play discovery or transfer.
+
+The current engineering milestone is one shared model trained across a frozen,
+versioned corpus of seven-crossing PD shadows. Eight-crossing shadows follow
+after the seven-crossing data, variable-size policy path, and held-out
+evaluation gates are complete. The long-term scientific objective is to compare
+learned strategies using diffusion operators constructed from activations and
+MCTS behavior on canonical probe-state panels.
 
 ## Supported mathematical convention
 
@@ -86,6 +103,15 @@ so it is a capacity/memorization result rather than a self-play result:
 python capacity_test.py --device cuda
 sbatch jobscript_bouchet_capacity.sh
 ```
+
+The currently validated architecture-capacity run is:
+
+```bash
+sbatch jobscript_bouchet_pd_position_perfect.sh
+```
+
+It uses supervised exact labels and must not be described as an AlphaZero
+self-play result.
 
 For a single Bouchet job that installs test-only dependencies, runs all tests,
 trains, and prints an explicit exhaustive `SOLVED: YES/NO` verdict, use:
