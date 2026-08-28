@@ -124,7 +124,9 @@ sbatch jobscript_bouchet_shared_seven.sh
 
 This is shared supervised capacity because all seven exact tables supply
 training labels. It is not held-out generalization; use a shadow-disjoint split
-for that claim.
+for that claim. The Bouchet script is the scaled capacity configuration (width
+256, eight global transformer layers); the Python defaults remain smaller for
+interactive use.
 
 For a single Bouchet job that installs test-only dependencies, runs all tests,
 trains, and prints an explicit exhaustive `SOLVED: YES/NO` verdict, use:

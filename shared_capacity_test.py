@@ -92,6 +92,8 @@ def main():
     parser.add_argument("--weight-decay", type=float, default=0.0)
     parser.add_argument("--dropout", type=float, default=0.0)
     parser.add_argument("--hidden-dim", type=int, default=128)
+    parser.add_argument("--num-heads", type=int, default=8)
+    parser.add_argument("--num-layers", type=int, default=6)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--report-every", type=int, default=10)
     parser.add_argument(
@@ -99,8 +101,20 @@ def main():
     )
     parser.add_argument("--device", default="cuda")
     args = parser.parse_args()
-    if args.epochs < 1 or args.batch_size < 1 or args.report_every < 1:
-        raise SystemExit("epochs, batch-size, and report-every must be positive")
+    if any(
+        value < 1
+        for value in (
+            args.epochs,
+            args.batch_size,
+            args.report_every,
+            args.hidden_dim,
+            args.num_heads,
+            args.num_layers,
+        )
+    ):
+        raise SystemExit("size, depth, epochs, batch-size, and report-every must be positive")
+    if args.hidden_dim % args.num_heads:
+        raise SystemExit("hidden-dim must be divisible by num-heads")
 
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -139,6 +153,8 @@ def main():
     network = NNetWrapper(
         games[0],
         hidden_dim=args.hidden_dim,
+        num_heads=args.num_heads,
+        num_layers=args.num_layers,
         dropout=args.dropout,
         device=str(device),
         architecture="port-transformer-pd-position",
@@ -153,10 +169,13 @@ def main():
     )
     checkpoint = Path(args.checkpoint)
     checkpoint.parent.mkdir(parents=True, exist_ok=True)
+    parameter_count = sum(parameter.numel() for parameter in network.model.parameters())
 
     print(
         f"Shared dataset: {len(datasets)} states across {len(names)} PD codes; "
-        f"device={device}; hidden_dim={args.hidden_dim}; seed={args.seed}"
+        f"device={device}; hidden_dim={args.hidden_dim}; "
+        f"heads={args.num_heads}; layers={args.num_layers}; "
+        f"parameters={parameter_count:,}; seed={args.seed}"
     )
     best_score = None
     for epoch in range(1, args.epochs + 1):
