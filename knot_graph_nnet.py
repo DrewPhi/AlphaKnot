@@ -222,6 +222,8 @@ class PortGraphTransformerNet(nn.Module):
         num_layers=4,
         dropout=0.1,
         num_port_layers=4,
+        position_mode="none",
+        direct_state_residual=False,
     ):
         super().__init__()
         if hidden_dim % num_heads != 0:
@@ -229,9 +231,18 @@ class PortGraphTransformerNet(nn.Module):
         self.action_size = game.getActionSize()
         self.num_nodes = len(game.initial_pd_code)
         self.hidden_dim = hidden_dim
+        if position_mode not in {"none", "list", "pd-traversal"}:
+            raise ValueError(f"Unknown position mode: {position_mode}")
+        self.position_mode = position_mode
+        self.direct_state_residual = direct_state_residual
         self.embed_slot = nn.Embedding(4, hidden_dim)
         self.embed_crossing_state = nn.Embedding(3, hidden_dim)
         self.embed_player = nn.Embedding(2, hidden_dim)
+        self.embed_crossing_position = (
+            nn.Embedding(self.num_nodes, hidden_dim)
+            if position_mode != "none"
+            else None
+        )
         self.port_layers = nn.ModuleList(
             PortRelationLayer(hidden_dim, dropout)
             for _ in range(num_port_layers)
@@ -289,6 +300,30 @@ class PortGraphTransformerNet(nn.Module):
         arc_peer[order[1::2]] = order[0::2]
         return cyclic_next, cyclic_prev, opposite, arc_peer
 
+    def _crossing_positions(self, pd_labels):
+        """Return configured list positions or first-encounter PD traversal ranks."""
+        if pd_labels.size(0) % self.num_nodes != 0:
+            raise ValueError(
+                "Positional encoding requires the configured crossing count"
+            )
+        num_graphs = pd_labels.size(0) // self.num_nodes
+        if self.position_mode == "list":
+            return torch.arange(
+                self.num_nodes, device=pd_labels.device
+            ).repeat(num_graphs)
+        if self.position_mode == "pd-traversal":
+            first_encounter = pd_labels.min(dim=1).values.reshape(
+                num_graphs, self.num_nodes
+            )
+            traversal_order = first_encounter.argsort(dim=1)
+            ranks = torch.empty_like(traversal_order)
+            rank_values = torch.arange(
+                self.num_nodes, device=pd_labels.device
+            ).expand_as(traversal_order)
+            ranks.scatter_(1, traversal_order, rank_values)
+            return ranks.reshape(-1)
+        raise RuntimeError("Crossing positions requested with position_mode='none'")
+
     def forward(self, data):
         crossing_batch = (
             data.batch
@@ -298,18 +333,28 @@ class PortGraphTransformerNet(nn.Module):
         pd_labels = data.x[:, :4].long()
         crossing_state = data.x[:, 4].long()
         relations = self._relation_indices(pd_labels, crossing_batch)
+        state_signal = self.embed_crossing_state(crossing_state)
+        position_signal = None
+        if self.embed_crossing_position is not None:
+            position_signal = self.embed_crossing_position(
+                self._crossing_positions(pd_labels)
+            )
 
         slots = torch.arange(4, device=data.x.device).expand(data.x.size(0), 4)
-        ports = (
-            self.embed_slot(slots)
-            + self.embed_crossing_state(crossing_state).unsqueeze(1)
-        ).reshape(-1, self.hidden_dim)
+        port_features = self.embed_slot(slots) + state_signal.unsqueeze(1)
+        if position_signal is not None:
+            port_features = port_features + position_signal.unsqueeze(1)
+        ports = port_features.reshape(-1, self.hidden_dim)
         for layer in self.port_layers:
             ports = layer(ports, *relations)
 
         crossings = self.crossing_projection(
             ports.reshape(data.x.size(0), 4 * self.hidden_dim)
         )
+        if self.direct_state_residual:
+            crossings = crossings + state_signal
+        if position_signal is not None:
+            crossings = crossings + position_signal
         dense_crossings, valid_crossings = to_dense_batch(
             crossings, crossing_batch
         )
@@ -371,6 +416,25 @@ class NNetWrapper:
                 num_heads=num_heads,
                 num_layers=num_layers,
                 dropout=dropout,
+            )
+        elif architecture in {
+            "port-transformer-residual",
+            "port-transformer-indexed",
+            "port-transformer-pd-position",
+        }:
+            position_mode = {
+                "port-transformer-residual": "none",
+                "port-transformer-indexed": "list",
+                "port-transformer-pd-position": "pd-traversal",
+            }[architecture]
+            model = PortGraphTransformerNet(
+                game,
+                hidden_dim=hidden_dim,
+                num_heads=num_heads,
+                num_layers=num_layers,
+                dropout=dropout,
+                position_mode=position_mode,
+                direct_state_residual=True,
             )
         else:
             raise ValueError(f"Unknown architecture: {architecture}")

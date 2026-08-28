@@ -113,7 +113,14 @@ def main():
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(
         "--architecture",
-        choices=("graph", "crossing-mlp", "port-graph-transformer"),
+        choices=(
+            "graph",
+            "crossing-mlp",
+            "port-graph-transformer",
+            "port-transformer-residual",
+            "port-transformer-indexed",
+            "port-transformer-pd-position",
+        ),
         default="graph",
     )
     parser.add_argument("--hidden-dim", type=int, default=64)

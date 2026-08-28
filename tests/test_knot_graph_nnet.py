@@ -86,7 +86,12 @@ class CrossingStateMLPTests(unittest.TestCase):
 
 
 class PortGraphTransformerTests(unittest.TestCase):
-    def _model(self, game):
+    def _model(
+        self,
+        game,
+        position_mode="none",
+        direct_state_residual=False,
+    ):
         model = PortGraphTransformerNet(
             game,
             hidden_dim=32,
@@ -94,6 +99,8 @@ class PortGraphTransformerTests(unittest.TestCase):
             num_layers=2,
             num_port_layers=2,
             dropout=0.0,
+            position_mode=position_mode,
+            direct_state_residual=direct_state_residual,
         )
         model.eval()
         return model
@@ -125,6 +132,44 @@ class PortGraphTransformerTests(unittest.TestCase):
 
         self.assertTrue(torch.allclose(policy, relabeled_policy, atol=1e-6))
         self.assertTrue(torch.allclose(value, relabeled_value, atol=1e-6))
+
+    def test_pd_traversal_positions_follow_first_encounter_not_list_order(self):
+        game = KnotGraphGame()
+        board = game.getInitBoard()
+        permutation = torch.tensor([2, 0, 6, 1, 5, 3, 4])
+        permuted_labels = board.x[permutation, :4].long()
+        model = self._model(game, position_mode="pd-traversal")
+
+        original_positions = model._crossing_positions(board.x[:, :4].long())
+        positions = model._crossing_positions(permuted_labels)
+
+        self.assertEqual(
+            positions.tolist(), original_positions[permutation].tolist()
+        )
+        self.assertNotEqual(positions.tolist(), list(range(7)))
+
+    def test_pd_position_model_is_equivariant_to_crossing_list_permutation(self):
+        game = KnotGraphGame()
+        board = game.getInitBoard()
+        permutation = torch.tensor([2, 0, 6, 1, 5, 3, 4])
+        permuted = board.clone()
+        permuted.x = board.x[permutation].clone()
+        model = self._model(
+            game,
+            position_mode="pd-traversal",
+            direct_state_residual=True,
+        )
+
+        with torch.no_grad():
+            policy, value = model(board)
+            permuted_policy, permuted_value = model(permuted)
+
+        policy = policy.reshape(7, 2)
+        permuted_policy = permuted_policy.reshape(7, 2)
+        self.assertTrue(
+            torch.allclose(permuted_policy, policy[permutation], atol=1e-6)
+        )
+        self.assertTrue(torch.allclose(value, permuted_value, atol=1e-6))
 
 
 if __name__ == "__main__":
