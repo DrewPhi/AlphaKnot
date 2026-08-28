@@ -110,6 +110,8 @@ def main():
     parser.add_argument("--epochs", type=int, default=400)
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--learning-rate", type=float, default=3e-3)
+    parser.add_argument("--weight-decay", type=float, default=1e-5)
+    parser.add_argument("--dropout", type=float, default=0.1)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(
         "--architecture",
@@ -132,6 +134,8 @@ def main():
 
     if args.epochs < 1 or args.batch_size < 1:
         raise SystemExit("epochs and batch-size must be positive")
+    if args.weight_decay < 0 or not 0 <= args.dropout < 1:
+        raise SystemExit("weight-decay must be nonnegative and dropout in [0, 1)")
     config.validate()
     if len(config.pd_codes) != 1:
         raise SystemExit("capacity_test.py requires one configured shadow")
@@ -158,11 +162,14 @@ def main():
     network = NNetWrapper(
         game,
         hidden_dim=args.hidden_dim,
+        dropout=args.dropout,
         device=str(device),
         architecture=args.architecture,
     )
     optimizer = torch.optim.AdamW(
-        network.model.parameters(), lr=args.learning_rate, weight_decay=1e-5
+        network.model.parameters(),
+        lr=args.learning_rate,
+        weight_decay=args.weight_decay,
     )
     network.optimizer = optimizer
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
@@ -174,7 +181,8 @@ def main():
     print(
         f"Capacity dataset: {len(dataset)} nonterminal states; "
         f"device={device}; seed={args.seed}; "
-        f"architecture={args.architecture}; hidden_dim={args.hidden_dim}"
+        f"architecture={args.architecture}; hidden_dim={args.hidden_dim}; "
+        f"dropout={args.dropout}; weight_decay={args.weight_decay}"
     )
     best_score = None
     best_metrics = None
