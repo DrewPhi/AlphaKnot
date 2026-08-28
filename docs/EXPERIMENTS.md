@@ -159,3 +159,25 @@ list position on the value task and finished only 3 policy states and 8 value
 states short of the exact gate. This identifies topology-derived positional
 identity as the key missing signal, while leaving a small optimization/capacity
 gap before the graph model is certified solved.
+
+### Tuned PD-position capacity run 23989965
+
+- Date: 2026-08-28
+- Commit: `6fff6da`
+- Cluster: Yale Bouchet, 1 RTX 5000 Ada GPU
+- Architecture: width-128 PD port transformer with direct state residual and
+  deterministic first-encounter PD traversal positions
+- Configuration: maximum 800 epochs, batch size 128, learning rate 0.003,
+  cosine schedule, zero dropout, zero weight decay, seed 0
+- Solved at epoch: 512
+- Elapsed time: 2 minutes 56 seconds, including independent evaluation
+- Optimal top-policy action: 100.00% (2,059/2,059)
+- Mean probability mass on optimal actions: 99.70%
+- Exact value-sign accuracy: 100.00% (2,059/2,059)
+- Certified capacity-solved verdict: **YES**
+
+This establishes that the PD-native graph-transformer architecture can
+represent the complete fixed-shadow minimax strategy once supplied with
+topology-derived positional identity and trained without dropout. It remains a
+supervised exact-table capacity result, not evidence that AlphaZero self-play
+has discovered the strategy or that the model generalizes to unseen shadows.
