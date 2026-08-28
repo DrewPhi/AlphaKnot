@@ -135,3 +135,27 @@ constant-majority value baseline for the entire run. The PD-native relations
 and global attention therefore did not by themselves fix the graph-model
 collapse. This result motivates an explicit state-distinguishability audit of
 intermediate port and crossing embeddings before further training runs.
+
+### Positional architecture sweep 23987732
+
+- Date: 2026-08-28
+- Commit: `b87b0df`
+- Cluster: Yale Bouchet, 1 RTX 5000 Ada GPU
+- Shared configuration: all 2,059 nonterminal states, maximum 400 epochs,
+  batch size 128, learning rate 0.003, seed 0
+- Total elapsed time: 7 minutes 44 seconds
+
+| Architecture | Top-policy optimal | Optimal mass | Value sign | Solved |
+| --- | ---: | ---: | ---: | :---: |
+| Crossing-state MLP | 100.00% | 99.60% | 100.00% | YES |
+| Port transformer + state residual | 79.60% | 72.89% | 71.10% | NO |
+| Port transformer + list index | 99.85% | 96.55% | 91.55% | NO |
+| Port transformer + PD traversal position | 99.85% | 98.54% | 99.61% | NO |
+
+The residual alone improved the port model but did not remove its capacity
+limit. Both positional encodings removed the policy collapse. The deterministic
+first-encounter PD traversal position was substantially better than arbitrary
+list position on the value task and finished only 3 policy states and 8 value
+states short of the exact gate. This identifies topology-derived positional
+identity as the key missing signal, while leaving a small optimization/capacity
+gap before the graph model is certified solved.
