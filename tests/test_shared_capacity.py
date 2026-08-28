@@ -5,7 +5,7 @@ from torch_geometric.data import Batch
 
 from exact_solver import ExactSolver
 from knot_graph_game import KnotGraphGame
-from knot_graph_nnet import PortGraphTransformerNet
+from knot_graph_nnet import PDStateMLP, PortGraphTransformerNet
 from seven_crossing_corpus import corpus_records, validate_corpus
 
 
@@ -52,6 +52,17 @@ class SevenCrossingCorpusTests(unittest.TestCase):
             graphs.append(graph)
         batch = Batch.from_data_list(graphs)
         self.assertEqual(batch.shadow_group.tolist(), [0, 1])
+
+    def test_pd_state_mlp_accepts_multiple_pd_codes(self):
+        records = corpus_records()
+        game = KnotGraphGame(pd_code=records[0][1])
+        first = game.getInitBoard()
+        second_game = KnotGraphGame(pd_code=records[1][1])
+        second = second_game.getInitBoard()
+        model = PDStateMLP(game, hidden_dim=64, num_layers=2)
+        policy, value = model(Batch.from_data_list([first, second]))
+        self.assertEqual(tuple(policy.shape), (2, 14))
+        self.assertEqual(tuple(value.shape), (2, 1))
 
     def test_each_pd_code_has_the_expected_exact_state_count(self):
         for _, pd_code in corpus_records():

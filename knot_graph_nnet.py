@@ -184,6 +184,53 @@ class CrossingStateMLP(nn.Module):
         return self.policy_head(hidden), torch.tanh(self.value_head(hidden))
 
 
+class PDStateMLP(nn.Module):
+    """Dense shared-shadow control over ordered PD labels and game state.
+
+    Unlike :class:`CrossingStateMLP`, this model can distinguish different
+    source diagrams.  It deliberately uses the canonical numeric PD labels, so
+    it is a capacity control rather than a relabeling-invariant architecture.
+    """
+
+    def __init__(
+        self,
+        game,
+        hidden_dim=512,
+        num_layers=4,
+        label_embed_dim=32,
+        state_embed_dim=32,
+        dropout=0.0,
+    ):
+        super().__init__()
+        self.action_size = game.getActionSize()
+        self.num_nodes = len(game.initial_pd_code)
+        self.embed_strand = nn.Embedding(config.max_strand_label + 1, label_embed_dim)
+        self.embed_crossing_state = nn.Embedding(3, state_embed_dim)
+        crossing_dim = 4 * label_embed_dim + state_embed_dim
+        input_dim = self.num_nodes * crossing_dim
+        layers = []
+        for layer_index in range(num_layers):
+            layers.append(nn.Linear(input_dim if layer_index == 0 else hidden_dim, hidden_dim))
+            layers.append(nn.GELU())
+            if dropout > 0:
+                layers.append(nn.Dropout(dropout))
+        self.trunk = nn.Sequential(*layers)
+        self.policy_head = nn.Linear(hidden_dim, self.action_size)
+        self.value_head = nn.Linear(hidden_dim, 1)
+
+    def forward(self, data):
+        if data.x.size(0) % self.num_nodes != 0:
+            raise ValueError("PD-state MLP requires a fixed crossing count")
+        graphs = data.x.reshape(-1, self.num_nodes, data.x.size(1))
+        pd_labels = graphs[:, :, :4].long()
+        crossing_states = graphs[:, :, 4].long()
+        label_features = self.embed_strand(pd_labels).flatten(2)
+        state_features = self.embed_crossing_state(crossing_states)
+        features = torch.cat([label_features, state_features], dim=2).flatten(1)
+        hidden = self.trunk(features)
+        return self.policy_head(hidden), torch.tanh(self.value_head(hidden))
+
+
 class PortRelationLayer(nn.Module):
     """Typed message passing on the four half-edges of every PD crossing."""
 
@@ -409,6 +456,13 @@ class NNetWrapper:
             model = KnotGraphNet(game, hidden_dim, num_heads, num_layers, dropout)
         elif architecture == "crossing-mlp":
             model = CrossingStateMLP(game, hidden_dim=hidden_dim)
+        elif architecture == "pd-state-mlp":
+            model = PDStateMLP(
+                game,
+                hidden_dim=hidden_dim,
+                num_layers=num_layers,
+                dropout=dropout,
+            )
         elif architecture == "port-graph-transformer":
             model = PortGraphTransformerNet(
                 game,

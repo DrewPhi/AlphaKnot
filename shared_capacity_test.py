@@ -94,6 +94,12 @@ def main():
     parser.add_argument("--hidden-dim", type=int, default=128)
     parser.add_argument("--num-heads", type=int, default=8)
     parser.add_argument("--num-layers", type=int, default=6)
+    parser.add_argument("--warmup-epochs", type=int, default=0)
+    parser.add_argument(
+        "--architecture",
+        choices=("port-transformer-pd-position", "pd-state-mlp"),
+        default="port-transformer-pd-position",
+    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--report-every", type=int, default=10)
     parser.add_argument(
@@ -115,6 +121,8 @@ def main():
         raise SystemExit("size, depth, epochs, batch-size, and report-every must be positive")
     if args.hidden_dim % args.num_heads:
         raise SystemExit("hidden-dim must be divisible by num-heads")
+    if not 0 <= args.warmup_epochs < args.epochs:
+        raise SystemExit("warmup-epochs must be nonnegative and less than epochs")
 
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -157,24 +165,41 @@ def main():
         num_layers=args.num_layers,
         dropout=args.dropout,
         device=str(device),
-        architecture="port-transformer-pd-position",
+        architecture=args.architecture,
     )
     optimizer = torch.optim.AdamW(
         network.model.parameters(),
         lr=args.learning_rate,
         weight_decay=args.weight_decay,
     )
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=args.epochs, eta_min=args.learning_rate / 100
+    cosine_epochs = args.epochs - args.warmup_epochs
+    cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=cosine_epochs, eta_min=args.learning_rate / 100
     )
+    if args.warmup_epochs:
+        warmup = torch.optim.lr_scheduler.LinearLR(
+            optimizer,
+            start_factor=1.0 / args.warmup_epochs,
+            end_factor=1.0,
+            total_iters=args.warmup_epochs,
+        )
+        scheduler = torch.optim.lr_scheduler.SequentialLR(
+            optimizer,
+            schedulers=[warmup, cosine],
+            milestones=[args.warmup_epochs],
+        )
+    else:
+        scheduler = cosine
     checkpoint = Path(args.checkpoint)
     checkpoint.parent.mkdir(parents=True, exist_ok=True)
     parameter_count = sum(parameter.numel() for parameter in network.model.parameters())
 
     print(
         f"Shared dataset: {len(datasets)} states across {len(names)} PD codes; "
-        f"device={device}; hidden_dim={args.hidden_dim}; "
+        f"device={device}; architecture={args.architecture}; "
+        f"hidden_dim={args.hidden_dim}; "
         f"heads={args.num_heads}; layers={args.num_layers}; "
+        f"warmup_epochs={args.warmup_epochs}; "
         f"parameters={parameter_count:,}; seed={args.seed}"
     )
     best_score = None

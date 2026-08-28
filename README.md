@@ -128,6 +128,14 @@ for that claim. The Bouchet script is the scaled capacity configuration (width
 256, eight global transformer layers); the Python defaults remain smaller for
 interactive use.
 
+The small shared-capacity parameter sweep includes four PD-position
+transformers and two dense controls that consume both ordered PD labels and
+crossing states:
+
+```bash
+sbatch jobscript_bouchet_shared_sweep.sh
+```
+
 For a single Bouchet job that installs test-only dependencies, runs all tests,
 trains, and prints an explicit exhaustive `SOLVED: YES/NO` verdict, use:
 
