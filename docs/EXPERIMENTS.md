@@ -114,3 +114,24 @@ generalization. It validates the exact targets, crossing-state data, batching,
 losses, and optimizer. In contrast with the graph runs, it isolates the
 remaining capacity failure to the graph model's representation, message
 passing, or readout path.
+
+### PD port-graph transformer capacity run 23801341
+
+- Date: 2026-08-26
+- Commit: `a616994`
+- Cluster: Yale Bouchet, 1 RTX 5000 Ada GPU
+- Architecture: four typed half-edge message-passing layers followed by a
+  width-128 global crossing transformer; invariant to numeric arc relabeling
+- Configuration: all 2,059 nonterminal states, 400 epochs, batch size 128,
+  learning rate 0.003, seed 0
+- Elapsed time: 2 minutes 31 seconds
+- Optimal top-policy action: 72.12%
+- Mean probability mass on optimal actions: 71.44%
+- Exact value-sign accuracy: 65.27%
+- Certified capacity-solved verdict: **NO**
+
+The model remained at the uniform-legal policy-mass baseline and the
+constant-majority value baseline for the entire run. The PD-native relations
+and global attention therefore did not by themselves fix the graph-model
+collapse. This result motivates an explicit state-distinguishability audit of
+intermediate port and crossing embeddings before further training runs.
