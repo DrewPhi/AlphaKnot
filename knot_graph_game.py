@@ -8,7 +8,12 @@ from pd_code_utils import pd_code_from_graph
 from knot_invariants import jones_is_one
 
 class KnotGraphGame:
-    def __init__(self):
+    def __init__(self, pd_code=None):
+        self._fixed_pd_code = (
+            [list(map(int, crossing)) for crossing in pd_code]
+            if pd_code is not None
+            else None
+        )
         self.pd_code = None  # The current PD code
         self.graph = None    # The graph representation (Data object)
     @property
@@ -16,7 +21,12 @@ class KnotGraphGame:
         return self.pd_code
 
     def getInitBoard(self):
-        self.pd_code = random.choice(config.pd_codes)
+        source = (
+            self._fixed_pd_code
+            if self._fixed_pd_code is not None
+            else random.choice(config.pd_codes)
+        )
+        self.pd_code = [list(crossing) for crossing in source]
         self.graph = self.pd_code_to_graph_data(self.pd_code)
         return self.graph
 

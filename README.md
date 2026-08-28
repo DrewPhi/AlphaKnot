@@ -113,6 +113,19 @@ sbatch jobscript_bouchet_pd_position_perfect.sh
 It uses supervised exact labels and must not be described as an AlphaZero
 self-play result.
 
+To fit one shared PD-position model to the exact tables for the seven prime
+seven-crossing Rolfsen diagrams (`7_1` through `7_7`) and print exhaustive
+metrics for each source PD code, run:
+
+```bash
+python shared_capacity_test.py --device cuda
+sbatch jobscript_bouchet_shared_seven.sh
+```
+
+This is shared supervised capacity because all seven exact tables supply
+training labels. It is not held-out generalization; use a shadow-disjoint split
+for that claim.
+
 For a single Bouchet job that installs test-only dependencies, runs all tests,
 trains, and prints an explicit exhaustive `SOLVED: YES/NO` verdict, use:
 
