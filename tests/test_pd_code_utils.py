@@ -4,7 +4,12 @@ from itertools import product
 import snappy
 
 from knot_graph_game import KnotGraphGame
-from pd_code_utils import crossing_sign, flip_crossing, pd_code_from_graph
+from pd_code_utils import (
+    canonicalize_pd_code,
+    crossing_sign,
+    flip_crossing,
+    pd_code_from_graph,
+)
 
 
 class PDCodeTests(unittest.TestCase):
@@ -35,9 +40,12 @@ class PDCodeTests(unittest.TestCase):
         game = KnotGraphGame()
         board = game.getInitBoard()
 
-        changed, _ = game.getNextState(board, 1, 2 * 3 + 1)
+        canonical_action = game.source_action_to_canonical(2 * 3 + 1)
+        canonical_crossing = canonical_action // 2
+        changed, _ = game.getNextState(board, 1, canonical_action)
 
-        self.assertEqual(pd_code_from_graph(changed)[3], [14, 7, 1, 8])
+        expected = flip_crossing(game.pd_code[canonical_crossing], 14)
+        self.assertEqual(pd_code_from_graph(changed)[canonical_crossing], expected)
 
     def test_action_attaches_resolution_state_to_crossing_node(self):
         game = KnotGraphGame()
@@ -67,3 +75,17 @@ class PDCodeTests(unittest.TestCase):
             resolved_codes.add(tuple(tuple(crossing) for crossing in pd_code))
 
         self.assertEqual(len(resolved_codes), 128)
+
+    def test_canonical_action_mapping_round_trips(self):
+        game = KnotGraphGame()
+        game.getInitBoard()
+        for action in range(game.getActionSize()):
+            canonical = game.source_action_to_canonical(action)
+            self.assertEqual(game.canonical_action_to_source(canonical), action)
+
+    def test_canonicalization_is_idempotent(self):
+        game = KnotGraphGame()
+        game.getInitBoard()
+        first = canonicalize_pd_code(game.source_pd_code)
+        second = canonicalize_pd_code(first.pd_code)
+        self.assertEqual(first.pd_code, second.pd_code)

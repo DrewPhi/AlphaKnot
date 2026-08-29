@@ -9,7 +9,7 @@ from torch_geometric.nn import TransformerConv, global_mean_pool
 from torch_geometric.utils import to_dense_batch
 import knot_graph_game as KnotGraphGame
 import config
-from pd_code_utils import deserialize_graph
+from pd_code_utils import PD_CANONICALIZATION_VERSION, deserialize_graph
 
 class KnotGraphNet(nn.Module):
     def __init__(self, game, hidden_dim=64, num_heads=8, num_layers=6, dropout=0.1):
@@ -577,6 +577,7 @@ class NNetWrapper:
             'optimizer': self.optimizer.state_dict(),
             'latest_loss': getattr(self, 'latest_loss', float('inf')),
             'architecture': self.architecture,
+            'pd_canonicalization_version': PD_CANONICALIZATION_VERSION,
         }, filepath)
         print(f"Checkpoint saved at {filepath}")
 
@@ -589,6 +590,15 @@ class NNetWrapper:
             raise ValueError(
                 f"Checkpoint architecture is {saved_architecture!r}, but "
                 f"wrapper architecture is {self.architecture!r}"
+            )
+        saved_canonicalization = checkpoint.get(
+            'pd_canonicalization_version', 'legacy-uncanonicalized'
+        )
+        if saved_canonicalization != PD_CANONICALIZATION_VERSION:
+            raise ValueError(
+                "Checkpoint PD canonicalization is "
+                f"{saved_canonicalization!r}, but runtime requires "
+                f"{PD_CANONICALIZATION_VERSION!r}"
             )
 
         # Get the state dict

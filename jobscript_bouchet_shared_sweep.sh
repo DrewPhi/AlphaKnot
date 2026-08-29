@@ -47,7 +47,7 @@ python shared_capacity_test.py \
   --dropout 0 \
   --seed 0 \
   --report-every 20 \
-  --checkpoint "checkpoints/shared_sweep_${NAME}.pth.tar" \
+  --checkpoint "checkpoints/shared_sweep_canonical_v1_${NAME}.pth.tar" \
   --device cuda
 
 echo "=== Sweep task $NAME complete ==="

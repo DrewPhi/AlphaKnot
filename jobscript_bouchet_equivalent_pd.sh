@@ -22,7 +22,7 @@ echo "commit=$(git rev-parse HEAD)"
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 
 python evaluate_equivalent_pd.py \
-  --checkpoint checkpoints/shared_sweep_t128_l6_b64_lr1e3.pth.tar \
+  --checkpoint checkpoints/shared_sweep_canonical_v1_t128_l6_b64_lr1e3.pth.tar \
   --hidden-dim 128 \
   --batch-size 256 \
   --device cuda

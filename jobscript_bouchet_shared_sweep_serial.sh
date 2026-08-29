@@ -45,7 +45,7 @@ run_config() {
     --dropout 0 \
     --seed 0 \
     --report-every 20 \
-    --checkpoint "checkpoints/shared_sweep_${name}.pth.tar" \
+    --checkpoint "checkpoints/shared_sweep_canonical_v1_${name}.pth.tar" \
     --device cuda
   echo "=== Finished $name ==="
 }

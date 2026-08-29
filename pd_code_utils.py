@@ -1,5 +1,103 @@
+from collections import Counter
+from dataclasses import dataclass
+
 import torch
 from torch_geometric.data import Data
+
+
+PD_CANONICALIZATION_VERSION = "oriented-dihedral-v1"
+
+
+@dataclass(frozen=True)
+class CanonicalPDCode:
+    """Canonical PD code and the crossing-coordinate map to its source."""
+
+    pd_code: tuple
+    canonical_to_source: tuple
+    source_to_canonical: tuple
+    orientation_reversed: bool
+    label_offset: int
+
+    def as_lists(self):
+        return [list(crossing) for crossing in self.pd_code]
+
+    def canonical_action_to_source(self, action):
+        crossing, choice = divmod(int(action), 2)
+        return 2 * self.canonical_to_source[crossing] + choice
+
+    def source_action_to_canonical(self, action):
+        crossing, choice = divmod(int(action), 2)
+        return 2 * self.source_to_canonical[crossing] + choice
+
+
+def _validate_oriented_pd_code(pd_code):
+    if not pd_code:
+        raise ValueError("PD code must contain at least one crossing")
+    if any(len(crossing) != 4 for crossing in pd_code):
+        raise ValueError("Every PD crossing must contain four labels")
+    crossings = len(pd_code)
+    n_edges = 2 * crossings
+    labels = [int(label) for crossing in pd_code for label in crossing]
+    occurrences = Counter(labels)
+    if set(occurrences) != set(range(1, n_edges + 1)):
+        raise ValueError(f"PD labels must be consecutive from 1 through {n_edges}")
+    if any(count != 2 for count in occurrences.values()):
+        raise ValueError("Every PD arc label must occur exactly twice")
+
+    def cyclic_neighbors(left, right):
+        return (left % n_edges) + 1 == right or (right % n_edges) + 1 == left
+
+    for crossing in pd_code:
+        a, b, c, d = map(int, crossing)
+        if not cyclic_neighbors(a, c):
+            raise ValueError(
+                f"PD under-strand labels are not cyclic neighbors: {crossing!r}"
+            )
+        crossing_sign(crossing, n_edges)
+    return n_edges
+
+
+def canonicalize_pd_code(pd_code):
+    """Canonicalize an oriented one-component PD serialization.
+
+    The quotient includes cyclic traversal basepoint, component orientation,
+    and crossing-list order.  Reversing orientation rotates every tuple by two
+    slots, preserving the original-versus-switched action semantics.
+    """
+    source = tuple(tuple(map(int, crossing)) for crossing in pd_code)
+    n_edges = _validate_oriented_pd_code(source)
+    candidates = []
+    for reverse in (False, True):
+        for offset in range(n_edges):
+            transformed = []
+            for source_index, crossing in enumerate(source):
+                labels = []
+                for label in crossing:
+                    coordinate = label - 1
+                    if reverse:
+                        coordinate = -coordinate
+                    labels.append(((coordinate + offset) % n_edges) + 1)
+                if reverse:
+                    labels = labels[2:] + labels[:2]
+                transformed.append((tuple(labels), source_index))
+            transformed.sort()
+            code = tuple(crossing for crossing, _ in transformed)
+            canonical_to_source = tuple(index for _, index in transformed)
+            candidates.append(
+                (code, canonical_to_source, reverse, offset)
+            )
+
+    code, canonical_to_source, reverse, offset = min(candidates)
+    source_to_canonical = [0] * len(source)
+    for canonical_index, source_index in enumerate(canonical_to_source):
+        source_to_canonical[source_index] = canonical_index
+    return CanonicalPDCode(
+        pd_code=code,
+        canonical_to_source=canonical_to_source,
+        source_to_canonical=tuple(source_to_canonical),
+        orientation_reversed=reverse,
+        label_offset=offset,
+    )
 
 
 def serialize_graph(graph_data):

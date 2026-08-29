@@ -7,7 +7,7 @@ from exact_solver import ExactSolver
 from evaluate_equivalent_pd import equivalent_variants
 from knot_graph_game import KnotGraphGame
 from knot_graph_nnet import PDStateMLP, PortGraphTransformerNet
-from pd_code_utils import crossing_sign
+from pd_code_utils import canonicalize_pd_code, crossing_sign
 from seven_crossing_corpus import corpus_records, validate_corpus
 
 
@@ -21,8 +21,9 @@ class SevenCrossingCorpusTests(unittest.TestCase):
         _, pd_code = corpus_records()[-1]
         game = KnotGraphGame(pd_code=pd_code)
         board = game.getInitBoard()
-        self.assertEqual(game.initial_pd_code, pd_code)
-        self.assertEqual(board.x[:, :4].long().tolist(), pd_code)
+        canonical = canonicalize_pd_code(pd_code).as_lists()
+        self.assertEqual(game.initial_pd_code, canonical)
+        self.assertEqual(board.x[:, :4].long().tolist(), canonical)
 
     def test_shared_model_accepts_different_pd_codes_in_one_batch(self):
         records = corpus_records()
@@ -73,6 +74,9 @@ class SevenCrossingCorpusTests(unittest.TestCase):
 
     def test_equivalent_serializations_remain_valid_seven_crossing_codes(self):
         _, pd_code = corpus_records()[0]
+        expected = canonicalize_pd_code(pd_code).pd_code
+        expected_solver_code = ExactSolver(pd_code).pd_code
+        expected_graph = KnotGraphGame(pd_code=pd_code).getInitBoard()
         for variant in equivalent_variants(pd_code).values():
             game = KnotGraphGame(pd_code=variant)
             board = game.getInitBoard()
@@ -83,6 +87,11 @@ class SevenCrossingCorpusTests(unittest.TestCase):
             )
             for crossing in variant:
                 crossing_sign(crossing, 14)
+            self.assertEqual(canonicalize_pd_code(variant).pd_code, expected)
+            self.assertEqual(ExactSolver(variant).pd_code, expected_solver_code)
+            self.assertTrue(torch.equal(board.x, expected_graph.x))
+            self.assertTrue(torch.equal(board.edge_index, expected_graph.edge_index))
+            self.assertTrue(torch.equal(board.edge_attr, expected_graph.edge_attr))
 
 
 if __name__ == "__main__":

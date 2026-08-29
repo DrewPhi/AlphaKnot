@@ -103,7 +103,8 @@ def main():
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--report-every", type=int, default=10)
     parser.add_argument(
-        "--checkpoint", default="checkpoints/shared_seven_exact.pth.tar"
+        "--checkpoint",
+        default="checkpoints/shared_seven_canonical_v1_exact.pth.tar",
     )
     parser.add_argument("--device", default="cuda")
     args = parser.parse_args()

@@ -37,6 +37,10 @@ splits and must report whether exact labels were used during training.
 - In `[a, b, c, d]`, `(a, c)` is the under-strand and `(b, d)` is the
   over-strand.
 - Labels advance cyclically, including the final-label-to-1 transition.
+- Canonicalize external PD codes with `pd_code_utils.canonicalize_pd_code`;
+  equivalent basepoints, component orientations, and crossing-list orders must
+  produce identical model inputs.
+- Preserve the returned source/canonical action maps at API boundaries.
 - A crossing change must use `pd_code_utils.flip_crossing`; do not invent a
   second sign convention.
 - The configured terminal classifier is the normalized Jones-polynomial

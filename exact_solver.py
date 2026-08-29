@@ -7,7 +7,7 @@ from itertools import product
 
 import config
 from knot_invariants import jones_is_one
-from pd_code_utils import flip_crossing
+from pd_code_utils import canonicalize_pd_code, flip_crossing
 
 
 UNRESOLVED = -1
@@ -18,7 +18,8 @@ class ExactSolver:
 
     def __init__(self, pd_code=None, knotter_first=None):
         source = pd_code if pd_code is not None else config.pd_codes[0]
-        self.pd_code = tuple(tuple(map(int, crossing)) for crossing in source)
+        self.canonicalization = canonicalize_pd_code(source)
+        self.pd_code = self.canonicalization.pd_code
         self.crossings = len(self.pd_code)
         self.n_edges = max(label for crossing in self.pd_code for label in crossing)
         self.knotter_first = (

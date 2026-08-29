@@ -23,6 +23,8 @@ diagram choices.
 - PD-native four-port graph representation with typed cyclic, opposite-strand,
   and same-arc relations.
 - Deterministic first-encounter PD traversal positional encoding.
+- Versioned oriented-PD canonicalization with reversible action maps for
+  traversal basepoint, component orientation, and crossing-list order.
 - Solved PD-position port-transformer capacity run: job `23989965`, epoch 512,
   100% exact policy and value-sign agreement.
 

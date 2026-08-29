@@ -33,7 +33,7 @@ python shared_capacity_test.py \
   --dropout 0 \
   --seed 0 \
   --report-every 10 \
-  --checkpoint checkpoints/shared_seven_large_exact.pth.tar \
+  --checkpoint checkpoints/shared_seven_large_canonical_v1_exact.pth.tar \
   --device cuda
 
 echo "=== Shared seven-PD experiment complete ==="

@@ -52,7 +52,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--checkpoint",
-        default="checkpoints/shared_sweep_t128_l6_b64_lr1e3.pth.tar",
+        default=(
+            "checkpoints/"
+            "shared_sweep_canonical_v1_t128_l6_b64_lr1e3.pth.tar"
+        ),
     )
     parser.add_argument("--hidden-dim", type=int, default=128)
     parser.add_argument("--batch-size", type=int, default=256)

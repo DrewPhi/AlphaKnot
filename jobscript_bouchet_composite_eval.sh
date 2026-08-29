@@ -27,7 +27,7 @@ PD_CODE='[[1,4,2,5],[3,6,4,7],[5,2,6,3],[11,1,12,14],[7,11,8,10],[9,12,10,13],[1
 python evaluate_exact.py \
   --architecture port-transformer-pd-position \
   --hidden-dim 128 \
-  --checkpoint checkpoints/shared_sweep_t128_l6_b64_lr1e3.pth.tar \
+  --checkpoint checkpoints/shared_sweep_canonical_v1_t128_l6_b64_lr1e3.pth.tar \
   --pd-code-json "$PD_CODE" \
   --device cuda
 

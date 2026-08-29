@@ -29,3 +29,19 @@ class CheckpointTests(unittest.TestCase):
             torch.from_numpy(source_policy), torch.from_numpy(restored_policy)
         ))
         self.assertAlmostEqual(source_value, restored_value)
+
+    def test_legacy_checkpoint_is_rejected_after_input_canonicalization(self):
+        game = KnotGraphGame()
+        game.getInitBoard()
+        network = NNetWrapper(game, device="cpu")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "legacy.pth.tar"
+            torch.save(
+                {
+                    "state_dict": network.model.state_dict(),
+                    "architecture": network.architecture,
+                },
+                path,
+            )
+            with self.assertRaisesRegex(ValueError, "canonicalization"):
+                network.load_checkpoint(str(path))

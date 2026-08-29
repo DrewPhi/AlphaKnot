@@ -35,6 +35,12 @@ The game currently accepts one-component PD codes with consecutive, one-based
 edge labels. For a crossing `[a, b, c, d]`, `(a, c)` is the under-strand and
 `(b, d)` is the over-strand. Labels advance cyclically, including `n -> 1`.
 
+Before graph construction, `pd_code_utils.canonicalize_pd_code` quotients out
+cyclic traversal basepoints, component-orientation reversal, and crossing-list
+order. It returns reversible crossing/action maps to the source serialization.
+Checkpoint metadata records canonicalization version `oriented-dihedral-v1`;
+legacy uncanonicalized checkpoints are intentionally rejected.
+
 Terminal classification via Alexander and Jones polynomials is limited by
 `max_validated_crossings` in `config.py`. Extending that bound requires an
 independent validation dataset; these polynomials do not detect the unknot in

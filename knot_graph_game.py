@@ -4,7 +4,7 @@ import random
 import torch
 from torch_geometric.data import Data
 import config
-from pd_code_utils import pd_code_from_graph
+from pd_code_utils import canonicalize_pd_code, pd_code_from_graph
 from knot_invariants import jones_is_one
 
 class KnotGraphGame:
@@ -15,6 +15,8 @@ class KnotGraphGame:
             else None
         )
         self.pd_code = None  # The current PD code
+        self.source_pd_code = None
+        self.pd_canonicalization = None
         self.graph = None    # The graph representation (Data object)
     @property
     def initial_pd_code(self):
@@ -26,11 +28,20 @@ class KnotGraphGame:
             if self._fixed_pd_code is not None
             else random.choice(config.pd_codes)
         )
-        self.pd_code = [list(crossing) for crossing in source]
+        self.source_pd_code = [list(crossing) for crossing in source]
+        self.pd_canonicalization = canonicalize_pd_code(self.source_pd_code)
+        self.pd_code = self.pd_canonicalization.as_lists()
         self.graph = self.pd_code_to_graph_data(self.pd_code)
         return self.graph
 
+    def canonical_action_to_source(self, action):
+        return self.pd_canonicalization.canonical_action_to_source(action)
+
+    def source_action_to_canonical(self, action):
+        return self.pd_canonicalization.source_action_to_canonical(action)
+
     def pd_code_to_graph_data(self, pd_code):
+        pd_code = canonicalize_pd_code(pd_code).as_lists()
         nodes = [tuple(crossing) for crossing in pd_code]
         node_map = {node: i for i, node in enumerate(nodes)}
 
