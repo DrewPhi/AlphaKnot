@@ -96,6 +96,9 @@ every nonterminal state with the minimax table. The smoke job is deliberately
 small; it validates the pipeline and should not be treated as a converged run.
 An external compatible diagram can be evaluated without changing `config.py`
 by passing its oriented one-based code through `--pd-code-json`.
+The frozen shared checkpoint can be audited exhaustively under equivalent
+basepoint, orientation, and crossing-list PD serializations with
+`evaluate_equivalent_pd.py`.
 
 Before changing the architecture, test whether it can represent the exact
 solution at all. This intentionally trains and evaluates on the complete table,

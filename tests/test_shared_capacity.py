@@ -4,8 +4,10 @@ import torch
 from torch_geometric.data import Batch
 
 from exact_solver import ExactSolver
+from evaluate_equivalent_pd import equivalent_variants
 from knot_graph_game import KnotGraphGame
 from knot_graph_nnet import PDStateMLP, PortGraphTransformerNet
+from pd_code_utils import crossing_sign
 from seven_crossing_corpus import corpus_records, validate_corpus
 
 
@@ -68,6 +70,19 @@ class SevenCrossingCorpusTests(unittest.TestCase):
         for _, pd_code in corpus_records():
             solver = ExactSolver(pd_code)
             self.assertEqual(sum(1 for _ in solver.all_states(terminal=False)), 2059)
+
+    def test_equivalent_serializations_remain_valid_seven_crossing_codes(self):
+        _, pd_code = corpus_records()[0]
+        for variant in equivalent_variants(pd_code).values():
+            game = KnotGraphGame(pd_code=variant)
+            board = game.getInitBoard()
+            self.assertEqual(tuple(board.x.shape), (7, 5))
+            self.assertEqual(
+                sorted(int(label) for label in board.x[:, :4].flatten()),
+                sorted(list(range(1, 15)) * 2),
+            )
+            for crossing in variant:
+                crossing_sign(crossing, 14)
 
 
 if __name__ == "__main__":
