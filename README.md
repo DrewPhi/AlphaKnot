@@ -39,7 +39,9 @@ Before graph construction, `pd_code_utils.canonicalize_pd_code` quotients out
 cyclic traversal basepoints, component-orientation reversal, and crossing-list
 order. It returns reversible crossing/action maps to the source serialization.
 Checkpoint metadata records canonicalization version `oriented-dihedral-v1`;
-legacy uncanonicalized checkpoints are intentionally rejected.
+the graph serializer is independently versioned as `pd-arc-incidence-v2`.
+Legacy uncanonicalized or slot-inferred graph checkpoints are intentionally
+rejected.
 
 Terminal classification via Alexander and Jones polynomials is limited by
 `max_validated_crossings` in `config.py`. Extending that bound requires an

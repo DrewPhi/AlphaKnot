@@ -133,6 +133,27 @@ class PrimeKnotCorpusTests(unittest.TestCase):
         self.assertEqual(tuple(policy.shape), (2, 16))
         self.assertEqual(tuple(value.shape), (2, 1))
 
+    def test_every_catalog_arc_has_two_directed_incidence_edges(self):
+        for name, pd_code in prime_corpus_records():
+            game = KnotGraphGame(pd_code=pd_code)
+            board = game.getInitBoard()
+            labels = board.edge_attr[:, 0].long()
+            for label in range(1, 2 * len(pd_code) + 1):
+                self.assertEqual(
+                    int((labels == label).sum().item()),
+                    2,
+                    msg=f"invalid graph incidence for {name} arc {label}",
+                )
+            for node_index, crossing in enumerate(board.x[:, :4].long().tolist()):
+                outgoing = board.edge_index[0] == node_index
+                self.assertEqual(
+                    set(board.edge_attr[outgoing, 0].long().tolist()),
+                    set(crossing),
+                    msg=f"missing incident arc at {name} crossing {node_index}",
+                )
+                for choice in (0, 1):
+                    game.getNextState(board, 1, 2 * node_index + choice)
+
     def test_mixed_size_exact_targets_pad_to_batch_action_width(self):
         records = dict(prime_corpus_records())
         graphs = []

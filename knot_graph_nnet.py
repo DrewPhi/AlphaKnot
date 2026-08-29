@@ -9,7 +9,11 @@ from torch_geometric.nn import TransformerConv, global_mean_pool
 from torch_geometric.utils import to_dense_batch
 import knot_graph_game as KnotGraphGame
 import config
-from pd_code_utils import PD_CANONICALIZATION_VERSION, deserialize_graph
+from pd_code_utils import (
+    GRAPH_REPRESENTATION_VERSION,
+    PD_CANONICALIZATION_VERSION,
+    deserialize_graph,
+)
 
 class KnotGraphNet(nn.Module):
     def __init__(self, game, hidden_dim=64, num_heads=8, num_layers=6, dropout=0.1):
@@ -639,6 +643,7 @@ class NNetWrapper:
             'latest_loss': getattr(self, 'latest_loss', float('inf')),
             'architecture': self.architecture,
             'pd_canonicalization_version': PD_CANONICALIZATION_VERSION,
+            'graph_representation_version': GRAPH_REPRESENTATION_VERSION,
         }, filepath)
         print(f"Checkpoint saved at {filepath}")
 
@@ -660,6 +665,15 @@ class NNetWrapper:
                 "Checkpoint PD canonicalization is "
                 f"{saved_canonicalization!r}, but runtime requires "
                 f"{PD_CANONICALIZATION_VERSION!r}"
+            )
+        saved_graph_representation = checkpoint.get(
+            'graph_representation_version', 'legacy-slot-inferred-v1'
+        )
+        if saved_graph_representation != GRAPH_REPRESENTATION_VERSION:
+            raise ValueError(
+                "Checkpoint graph representation is "
+                f"{saved_graph_representation!r}, but runtime requires "
+                f"{GRAPH_REPRESENTATION_VERSION!r}"
             )
 
         # Get the state dict

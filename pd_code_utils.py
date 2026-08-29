@@ -6,6 +6,7 @@ from torch_geometric.data import Data
 
 
 PD_CANONICALIZATION_VERSION = "oriented-dihedral-v1"
+GRAPH_REPRESENTATION_VERSION = "pd-arc-incidence-v2"
 
 
 @dataclass(frozen=True)

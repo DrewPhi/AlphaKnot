@@ -6,6 +6,7 @@ import torch
 
 from knot_graph_game import KnotGraphGame
 from knot_graph_nnet import NNetWrapper
+from pd_code_utils import PD_CANONICALIZATION_VERSION
 
 
 class CheckpointTests(unittest.TestCase):
@@ -44,4 +45,21 @@ class CheckpointTests(unittest.TestCase):
                 path,
             )
             with self.assertRaisesRegex(ValueError, "canonicalization"):
+                network.load_checkpoint(str(path))
+
+    def test_slot_inferred_graph_checkpoint_is_rejected(self):
+        game = KnotGraphGame()
+        game.getInitBoard()
+        network = NNetWrapper(game, device="cpu")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "old-graph.pth.tar"
+            torch.save(
+                {
+                    "state_dict": network.model.state_dict(),
+                    "architecture": network.architecture,
+                    "pd_canonicalization_version": PD_CANONICALIZATION_VERSION,
+                },
+                path,
+            )
+            with self.assertRaisesRegex(ValueError, "graph representation"):
                 network.load_checkpoint(str(path))

@@ -43,6 +43,8 @@ splits and must report whether exact labels were used during training.
 - Preserve the returned source/canonical action maps at API boundaries.
 - A crossing change must use `pd_code_utils.flip_crossing`; do not invent a
   second sign convention.
+- Build graph adjacency by pairing the two occurrences of every PD arc label;
+  do not infer incidence from selected tuple slots.
 - The configured terminal classifier is the normalized Jones-polynomial
   criterion in `knot_invariants.py`. Treat `Jones == 1` as the game rule, not as
   a general theorem characterizing the unknot.

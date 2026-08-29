@@ -42,8 +42,6 @@ class KnotGraphGame:
 
     def pd_code_to_graph_data(self, pd_code):
         pd_code = canonicalize_pd_code(pd_code).as_lists()
-        nodes = [tuple(crossing) for crossing in pd_code]
-        node_map = {node: i for i, node in enumerate(nodes)}
 
         # Node columns 0:4 are the ordered PD tuple.  Column 4 is the crossing
         # resolution state: 0 unresolved, 1 original, 2 switched.
@@ -55,27 +53,23 @@ class KnotGraphGame:
         edge_index = []
         edge_attr = []
 
-        def connected_to(strand, others):
-            for c in others:
-                if strand in c:
-                    return c
-            return None
-
-        for i in pd_code:
-            i_tuple = tuple(i)
-            trunc = [j for j in pd_code if j != i]
-            c0 = connected_to(i[0], trunc)
-            c2 = connected_to(i[2], trunc)
-            if c0:
-                edge_index.append([node_map[tuple(c0)], node_map[i_tuple]])
-                edge_index.append([node_map[i_tuple], node_map[tuple(c0)]])
-                edge_attr.append([i[0], 0])
-                edge_attr.append([i[0], 0])
-            if c2:
-                edge_index.append([node_map[i_tuple], node_map[tuple(c2)]])
-                edge_index.append([node_map[tuple(c2)], node_map[i_tuple]])
-                edge_attr.append([i[2], 0])
-                edge_attr.append([i[2], 0])
+        # A PD arc label occurs at exactly two crossing ports.  Pair those
+        # occurrences directly instead of guessing connectivity from tuple
+        # slots 0 and 2: valid diagrams may contain over-to-over arcs, and an
+        # arc may also have both endpoints at the same crossing.
+        label_endpoints = {}
+        for node_index, crossing in enumerate(pd_code):
+            for label in crossing:
+                label_endpoints.setdefault(int(label), []).append(node_index)
+        for label in sorted(label_endpoints):
+            endpoints = label_endpoints[label]
+            if len(endpoints) != 2:
+                raise ValueError(
+                    f"PD arc label {label} occurs {len(endpoints)} times; expected 2"
+                )
+            left, right = endpoints
+            edge_index.extend(([left, right], [right, left]))
+            edge_attr.extend(([label, 0], [label, 0]))
 
         edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
         edge_attr = torch.tensor(edge_attr, dtype=torch.float)
