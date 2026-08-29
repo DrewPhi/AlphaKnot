@@ -136,6 +136,13 @@ crossing states:
 sbatch jobscript_bouchet_shared_sweep.sh
 ```
 
+If the account's submitted-array-task quota is occupied, the equivalent
+single-allocation serial sweep is:
+
+```bash
+sbatch jobscript_bouchet_shared_sweep_serial.sh
+```
+
 For a single Bouchet job that installs test-only dependencies, runs all tests,
 trains, and prints an explicit exhaustive `SOLVED: YES/NO` verdict, use:
 
