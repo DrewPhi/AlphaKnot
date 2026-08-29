@@ -94,6 +94,8 @@ The exact solver evaluates all 2,187 partial crossing assignments. After
 training, `evaluate_exact.py` compares the checkpoint's policy and value at
 every nonterminal state with the minimax table. The smoke job is deliberately
 small; it validates the pipeline and should not be treated as a converged run.
+An external compatible diagram can be evaluated without changing `config.py`
+by passing its oriented one-based code through `--pd-code-json`.
 
 Before changing the architecture, test whether it can represent the exact
 solution at all. This intentionally trains and evaluates on the complete table,

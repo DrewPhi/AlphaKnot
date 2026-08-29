@@ -3,6 +3,7 @@
 
 import argparse
 from collections import defaultdict
+import json
 
 import numpy as np
 
@@ -34,14 +35,30 @@ def main():
             "port-transformer-residual",
             "port-transformer-indexed",
             "port-transformer-pd-position",
+            "pd-state-mlp",
         ),
         default="graph",
     )
     parser.add_argument("--hidden-dim", type=int, default=64)
+    parser.add_argument(
+        "--pd-code-json",
+        help="optional one-based oriented PD code as a JSON list of 4-tuples",
+    )
     args = parser.parse_args()
 
     config.validate()
-    game = KnotGraphGame()
+    pd_code = None
+    if args.pd_code_json:
+        try:
+            pd_code = json.loads(args.pd_code_json)
+        except json.JSONDecodeError as exc:
+            raise SystemExit(f"Invalid --pd-code-json: {exc}") from exc
+        if not isinstance(pd_code, list) or not pd_code or any(
+            not isinstance(crossing, list) or len(crossing) != 4
+            for crossing in pd_code
+        ):
+            raise SystemExit("--pd-code-json must be a nonempty JSON list of 4-lists")
+    game = KnotGraphGame(pd_code=pd_code)
     game.getInitBoard()
     solver = ExactSolver(game.initial_pd_code)
     network = NNetWrapper(
