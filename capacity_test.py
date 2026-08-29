@@ -39,6 +39,10 @@ def exact_example(game, solver, state, depth_counts=None):
     board.target_policy = policy.unsqueeze(0)
     board.target_value = torch.tensor([float(solver.value(state))])
     board.legal_mask = legal.unsqueeze(0)
+    # Node-level copies collate across mixed crossing counts.  The legacy
+    # graph-level tensors above remain for fixed-size experiments.
+    board.node_target_policy = policy.reshape(action_size // 2, 2)
+    board.node_legal_mask = legal.reshape(action_size // 2, 2)
     board.sample_weight = torch.tensor([weight], dtype=torch.float32)
     board.depth = torch.tensor([depth], dtype=torch.long)
     return board

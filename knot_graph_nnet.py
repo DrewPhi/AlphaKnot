@@ -271,6 +271,7 @@ class PortGraphTransformerNet(nn.Module):
         num_port_layers=4,
         position_mode="none",
         direct_state_residual=False,
+        variable_size=False,
     ):
         super().__init__()
         if hidden_dim % num_heads != 0:
@@ -278,16 +279,30 @@ class PortGraphTransformerNet(nn.Module):
         self.action_size = game.getActionSize()
         self.num_nodes = len(game.initial_pd_code)
         self.hidden_dim = hidden_dim
-        if position_mode not in {"none", "list", "pd-traversal"}:
+        if position_mode not in {"none", "list", "pd-traversal", "pd-structural"}:
             raise ValueError(f"Unknown position mode: {position_mode}")
         self.position_mode = position_mode
         self.direct_state_residual = direct_state_residual
+        self.variable_size = variable_size
         self.embed_slot = nn.Embedding(4, hidden_dim)
         self.embed_crossing_state = nn.Embedding(3, hidden_dim)
         self.embed_player = nn.Embedding(2, hidden_dim)
         self.embed_crossing_position = (
             nn.Embedding(self.num_nodes, hidden_dim)
-            if position_mode != "none"
+            if position_mode in {"list", "pd-traversal"}
+            else None
+        )
+        # The variable-size model cannot use a learned table indexed by a
+        # fixed crossing count.  These four deterministic structural features
+        # describe a crossing's canonical traversal location and graph size;
+        # the projection is shared for every crossing count.
+        self.structural_position_projection = (
+            nn.Sequential(
+                nn.Linear(4, hidden_dim),
+                nn.GELU(),
+                nn.LayerNorm(hidden_dim),
+            )
+            if position_mode == "pd-structural"
             else None
         )
         self.port_layers = nn.ModuleList(
@@ -371,6 +386,42 @@ class PortGraphTransformerNet(nn.Module):
             return ranks.reshape(-1)
         raise RuntimeError("Crossing positions requested with position_mode='none'")
 
+    @staticmethod
+    def _structural_position_features(pd_labels, crossing_batch):
+        """Return scale-free canonical PD traversal features per crossing.
+
+        Canonical arc labels determine first-encounter rank within each graph.
+        No learned lookup is indexed by the crossing count, so the encoding is
+        defined for diagrams larger than those seen during training.
+        """
+        features = torch.empty(
+            (pd_labels.size(0), 4),
+            dtype=torch.float32,
+            device=pd_labels.device,
+        )
+        first_encounter = pd_labels.min(dim=1).values
+        for graph_index in range(int(crossing_batch.max().item()) + 1):
+            node_indices = (crossing_batch == graph_index).nonzero(as_tuple=False).view(-1)
+            count = node_indices.numel()
+            order = first_encounter[node_indices].argsort()
+            ranks = torch.empty(count, dtype=torch.long, device=pd_labels.device)
+            ranks[order] = torch.arange(count, device=pd_labels.device)
+            phase = ranks.float() / float(max(count, 1))
+            linear = ranks.float() / float(max(count - 1, 1))
+            size = torch.ones_like(linear) * torch.log1p(
+                torch.tensor(float(count), device=pd_labels.device)
+            )
+            features[node_indices] = torch.stack(
+                (
+                    torch.sin(2 * torch.pi * phase),
+                    torch.cos(2 * torch.pi * phase),
+                    linear,
+                    size,
+                ),
+                dim=1,
+            )
+        return features
+
     def forward(self, data):
         crossing_batch = (
             data.batch
@@ -385,6 +436,10 @@ class PortGraphTransformerNet(nn.Module):
         if self.embed_crossing_position is not None:
             position_signal = self.embed_crossing_position(
                 self._crossing_positions(pd_labels)
+            )
+        elif self.structural_position_projection is not None:
+            position_signal = self.structural_position_projection(
+                self._structural_position_features(pd_labels, crossing_batch)
             )
 
         slots = torch.arange(4, device=data.x.device).expand(data.x.size(0), 4)
@@ -427,11 +482,14 @@ class PortGraphTransformerNet(nn.Module):
         )
 
         policy_by_crossing = self.policy_head(encoded[:, 1:])
-        if policy_by_crossing.size(1) != self.num_nodes:
+        if not self.variable_size and policy_by_crossing.size(1) != self.num_nodes:
             raise ValueError(
                 "Current AlphaZero wrapper requires the configured crossing count"
             )
-        policy = policy_by_crossing.reshape(-1, self.action_size)
+        if self.variable_size:
+            policy = policy_by_crossing.reshape(policy_by_crossing.size(0), -1)
+        else:
+            policy = policy_by_crossing.reshape(-1, self.action_size)
         value = torch.tanh(self.value_head(encoded[:, 0]))
         return policy, value
 
@@ -475,11 +533,13 @@ class NNetWrapper:
             "port-transformer-residual",
             "port-transformer-indexed",
             "port-transformer-pd-position",
+            "variable-port-transformer",
         }:
             position_mode = {
                 "port-transformer-residual": "none",
                 "port-transformer-indexed": "list",
                 "port-transformer-pd-position": "pd-traversal",
+                "variable-port-transformer": "pd-structural",
             }[architecture]
             model = PortGraphTransformerNet(
                 game,
@@ -489,6 +549,7 @@ class NNetWrapper:
                 dropout=dropout,
                 position_mode=position_mode,
                 direct_state_residual=True,
+                variable_size=architecture == "variable-port-transformer",
             )
         else:
             raise ValueError(f"Unknown architecture: {architecture}")

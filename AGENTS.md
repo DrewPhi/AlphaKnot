@@ -11,10 +11,10 @@ nonterminal states in Bouchet job `23989965`. This was supervised exact-table
 training: it proves representational capacity, not AlphaZero self-play discovery
 or generalization.
 
-The current milestone is a single shared model over a versioned corpus of
-seven-crossing, oriented, one-component PD shadows. Complete the seven-crossing
-dataset, variable-corpus training path, and held-out evaluation before adding
-eight-crossing shadows to production training. Follow `docs/ROADMAP.md` and
+The current milestone is one variable-size shared model over the versioned
+standard prime-knot PD catalog from three through eight crossings. The catalog
+contains one Spherogram table diagram for each of the 35 prime knot types; do
+not confuse that with all diagrams or all shadows. Follow `docs/ROADMAP.md` and
 `docs/STRATEGY_EMBEDDINGS.md`.
 
 For every shadow with an exact table, exact `SOLVED: YES` still means both:
@@ -130,6 +130,8 @@ a test that fails under the old behavior.
 - `exact_solver.py`: complete minimax ground truth.
 - `evaluate_exact.py`: exhaustive learned-model evaluation.
 - `capacity_test.py`: exact-table architecture capacity experiment.
+- `prime_knot_corpus.py`: standard prime-knot PD catalog through 8 crossings.
+- `variable_size_capacity_test.py`: mixed-crossing exact capacity experiment.
 - `mcts.py`, `coach.py`, `arena.py`: search, training, and match evaluation.
 - `knot_graph_nnet.py`: graph policy/value network.
 - `jobscript_bouchet_full.sh`: end-to-end Bouchet validation and training.

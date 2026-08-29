@@ -22,12 +22,12 @@ supervised capacity gate: it reproduced every exact policy decision and value
 sign across 2,059 nonterminal states. This establishes architecture capacity,
 not self-play discovery or transfer.
 
-The current engineering milestone is one shared model trained across a frozen,
-versioned corpus of seven-crossing PD shadows. Eight-crossing shadows follow
-after the seven-crossing data, variable-size policy path, and held-out
-evaluation gates are complete. The long-term scientific objective is to compare
-learned strategies using diffusion operators constructed from activations and
-MCTS behavior on canonical probe-state panels.
+The current engineering milestone is one variable-size shared model trained on
+the versioned standard prime-knot PD catalog from three through eight
+crossings. The catalog contains 35 Spherogram table diagrams, one per prime knot
+type; it is not an enumeration of all diagrams or shadows. The long-term
+scientific objective is to compare learned strategies using diffusion operators
+constructed from activations and MCTS behavior on canonical probe-state panels.
 
 ## Supported mathematical convention
 
@@ -153,6 +153,22 @@ single-allocation serial sweep is:
 ```bash
 sbatch jobscript_bouchet_shared_sweep_serial.sh
 ```
+
+The mixed-crossing capacity path batches variable-size graphs, uses a shared
+nodewise keep/switch policy head, and pads only at the batch action boundary.
+Its structural PD traversal encoding has no crossing-count-indexed lookup:
+
+```bash
+python variable_size_capacity_test.py --min-crossings 3 --max-crossings 8 --device cuda
+sbatch jobscript_bouchet_prime_3_to_8_sweep.sh
+```
+
+The training loader samples hierarchically so crossing number, knot identity,
+and game depth receive balanced mass. This remains exact-supervised capacity,
+not AlphaZero self-play or held-out generalization. Production terminal
+classification in `KnotGraphGame` remains capped by
+`config.max_validated_crossings`; the mixed-size experiment does not silently
+raise that safety bound.
 
 For a single Bouchet job that installs test-only dependencies, runs all tests,
 trains, and prints an explicit exhaustive `SOLVED: YES/NO` verdict, use:

@@ -8,7 +8,10 @@ from evaluate_equivalent_pd import equivalent_variants
 from knot_graph_game import KnotGraphGame
 from knot_graph_nnet import PDStateMLP, PortGraphTransformerNet
 from pd_code_utils import canonicalize_pd_code, crossing_sign
+from prime_knot_corpus import corpus_records as prime_corpus_records
+from prime_knot_corpus import validate_corpus as validate_prime_corpus
 from seven_crossing_corpus import corpus_records, validate_corpus
+from variable_size_capacity_test import dense_action_targets
 
 
 class SevenCrossingCorpusTests(unittest.TestCase):
@@ -92,6 +95,59 @@ class SevenCrossingCorpusTests(unittest.TestCase):
             self.assertTrue(torch.equal(board.x, expected_graph.x))
             self.assertTrue(torch.equal(board.edge_index, expected_graph.edge_index))
             self.assertTrue(torch.equal(board.edge_attr, expected_graph.edge_attr))
+
+
+class PrimeKnotCorpusTests(unittest.TestCase):
+    def test_standard_prime_table_through_eight_crossings_is_complete_and_valid(self):
+        validate_prime_corpus()
+        records = prime_corpus_records()
+        self.assertEqual(len(records), 35)
+        self.assertEqual(records[0][0], "3_1")
+        self.assertEqual(records[-1][0], "8_21")
+        self.assertEqual(
+            {
+                crossings: sum(len(pd_code) == crossings for _, pd_code in records)
+                for crossings in range(3, 9)
+            },
+            {3: 1, 4: 1, 5: 2, 6: 3, 7: 7, 8: 21},
+        )
+
+    def test_variable_model_batches_three_and_eight_crossing_games(self):
+        records = dict(prime_corpus_records())
+        small_game = KnotGraphGame(pd_code=records["3_1"])
+        small = small_game.getInitBoard()
+        large_game = KnotGraphGame(pd_code=records["8_21"])
+        large = large_game.getInitBoard()
+        model = PortGraphTransformerNet(
+            small_game,
+            hidden_dim=32,
+            num_heads=4,
+            num_layers=1,
+            num_port_layers=1,
+            dropout=0.0,
+            position_mode="pd-structural",
+            direct_state_residual=True,
+            variable_size=True,
+        )
+        policy, value = model(Batch.from_data_list([small, large]))
+        self.assertEqual(tuple(policy.shape), (2, 16))
+        self.assertEqual(tuple(value.shape), (2, 1))
+
+    def test_mixed_size_exact_targets_pad_to_batch_action_width(self):
+        records = dict(prime_corpus_records())
+        graphs = []
+        for name in ("3_1", "8_1"):
+            game = KnotGraphGame(pd_code=records[name])
+            graph = game.getInitBoard()
+            graph.node_target_policy = torch.zeros(len(records[name]), 2)
+            graph.node_legal_mask = torch.ones(len(records[name]), 2, dtype=torch.bool)
+            graphs.append(graph)
+        batch = Batch.from_data_list(graphs)
+        target, legal = dense_action_targets(batch)
+        self.assertEqual(tuple(target.shape), (2, 16))
+        self.assertEqual(tuple(legal.shape), (2, 16))
+        self.assertFalse(legal[0, 6:].any())
+        self.assertTrue(legal[1].all())
 
 
 if __name__ == "__main__":

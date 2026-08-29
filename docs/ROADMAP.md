@@ -93,14 +93,24 @@ policy or value targets.
 
 ## Milestone G2: eight crossings
 
-Extend the same manifest and model path to eight-crossing shadows only after G1.
-An eight-crossing shadow has 6,561 ternary partial assignments and 6,305
-nonterminal states, so exhaustive exact tables remain a plausible evaluation
-tool before scaling further.
+The first G2 implementation is now present. `prime_knot_corpus.py` stores the
+35 standard Spherogram table diagrams for prime knots from three through eight
+crossings. `variable_size_capacity_test.py` supports mixed-size batches,
+nodewise keep/switch supervision, padded legal-action masks, hierarchical
+sampling, and per-knot/per-crossing exact reporting. The new
+`variable-port-transformer` uses scale-free canonical traversal features rather
+than a crossing-count-indexed positional lookup.
 
-G2 must add mixed-size batching or padding/action masks if seven- and
-eight-crossing shadows are trained together. Report performance separately by
-crossing count and retain knot-type-disjoint evaluation.
+An eight-crossing shadow has 6,561 ternary partial assignments and 6,305
+nonterminal states, so exhaustive tables remain feasible. The standard catalog
+is not an enumeration of all diagrams or shadows. Remaining G2 gates are:
+
+1. Establish mixed-size capacity across all 35 catalog records and multiple seeds.
+2. Independently validate the terminal classifier before raising the production
+   `max_validated_crossings` safety bound from seven to eight.
+3. Freeze diagram/shadow metadata and knot-type-disjoint evaluation splits.
+4. Add non-tabulated and alternate diagrams without leaking equivalent objects
+   across a claimed generalization split.
 
 ## Milestone R1: strategic diffusion geometry
 
@@ -115,11 +125,9 @@ prediction, and stability tests are required for paper claims.
 
 ## Near-term implementation order
 
-1. Define and validate the seven-crossing corpus manifest.
-2. Refactor configuration and datasets for multiple shadows.
-3. Train the shared model with exact supervision as a capacity control.
-4. Add frozen held-out evaluation and per-shadow reporting.
-5. Train the shared AlphaZero self-play model.
-6. Export canonical activations and MCTS statistics.
-7. Construct and compare diffusion operators.
-8. Extend the validated pipeline to eight crossings.
+1. Run and tune mixed-size exact capacity across the 35-record prime catalog.
+2. Independently validate eight-crossing terminal classification.
+3. Freeze richer diagram/shadow metadata and held-out splits.
+4. Train the shared variable-size AlphaZero self-play model.
+5. Export canonical activations and MCTS statistics.
+6. Construct and compare diffusion operators.

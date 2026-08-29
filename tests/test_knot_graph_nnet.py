@@ -171,6 +171,19 @@ class PortGraphTransformerTests(unittest.TestCase):
         )
         self.assertTrue(torch.allclose(value, permuted_value, atol=1e-6))
 
+    def test_structural_positions_are_equivariant_to_crossing_list_permutation(self):
+        game = KnotGraphGame()
+        board = game.getInitBoard()
+        batch = torch.zeros(board.x.size(0), dtype=torch.long)
+        permutation = torch.tensor([2, 0, 6, 1, 5, 3, 4])
+        features = PortGraphTransformerNet._structural_position_features(
+            board.x[:, :4].long(), batch
+        )
+        permuted = PortGraphTransformerNet._structural_position_features(
+            board.x[permutation, :4].long(), batch
+        )
+        self.assertTrue(torch.allclose(permuted, features[permutation]))
+
 
 if __name__ == "__main__":
     unittest.main()
