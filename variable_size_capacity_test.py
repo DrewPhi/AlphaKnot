@@ -85,6 +85,7 @@ def evaluate(model, loader, device, names):
 
 
 def aggregate(rows):
+    rows = tuple(rows)
     return {
         key: sum(row[key] for row in rows)
         for key in ("states", "policy_correct", "value_correct", "optimal_mass")

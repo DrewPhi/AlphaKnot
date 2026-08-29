@@ -11,7 +11,7 @@ from pd_code_utils import canonicalize_pd_code, crossing_sign
 from prime_knot_corpus import corpus_records as prime_corpus_records
 from prime_knot_corpus import validate_corpus as validate_prime_corpus
 from seven_crossing_corpus import corpus_records, validate_corpus
-from variable_size_capacity_test import dense_action_targets
+from variable_size_capacity_test import aggregate, dense_action_targets
 
 
 class SevenCrossingCorpusTests(unittest.TestCase):
@@ -148,6 +148,16 @@ class PrimeKnotCorpusTests(unittest.TestCase):
         self.assertEqual(tuple(legal.shape), (2, 16))
         self.assertFalse(legal[0, 6:].any())
         self.assertTrue(legal[1].all())
+
+    def test_metric_aggregation_accepts_one_pass_iterables(self):
+        rows = (
+            {"states": 2, "policy_correct": 1, "value_correct": 2, "optimal_mass": 1.5},
+            {"states": 3, "policy_correct": 2, "value_correct": 1, "optimal_mass": 2.0},
+        )
+        self.assertEqual(
+            aggregate(iter(rows)),
+            {"states": 5, "policy_correct": 3, "value_correct": 3, "optimal_mass": 3.5},
+        )
 
 
 if __name__ == "__main__":
