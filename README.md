@@ -172,6 +172,18 @@ classification in `KnotGraphGame` remains capped by
 `config.max_validated_crossings`; the mixed-size experiment does not silently
 raise that safety bound.
 
+To export matched penultimate-layer strategy activations, construct one
+diffusion operator per knot, and generate knot- and state-level PHATE maps from
+the solved shared checkpoint:
+
+```bash
+sbatch jobscript_bouchet_strategy_phate.sh
+```
+
+The generated manifest records checkpoint and probe-panel hashes,
+representation versions, activation dimension, kernel, PHATE settings, and
+package versions.
+
 For a single Bouchet job that installs test-only dependencies, runs all tests,
 trains, and prints an explicit exhaustive `SOLVED: YES/NO` verdict, use:
 

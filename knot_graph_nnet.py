@@ -426,7 +426,7 @@ class PortGraphTransformerNet(nn.Module):
             )
         return features
 
-    def forward(self, data):
+    def forward(self, data, return_activations=False):
         crossing_batch = (
             data.batch
             if hasattr(data, "batch") and data.batch is not None
@@ -494,7 +494,18 @@ class PortGraphTransformerNet(nn.Module):
             policy = policy_by_crossing.reshape(policy_by_crossing.size(0), -1)
         else:
             policy = policy_by_crossing.reshape(-1, self.action_size)
-        value = torch.tanh(self.value_head(encoded[:, 0]))
+        graph_representation = encoded[:, 0]
+        value_penultimate = self.value_head[1](
+            self.value_head[0](graph_representation)
+        )
+        value = torch.tanh(self.value_head[2](value_penultimate))
+        if return_activations:
+            return policy, value, {
+                "graph_token": graph_representation,
+                "value_penultimate": value_penultimate,
+                "crossing_tokens": encoded[:, 1:],
+                "crossing_mask": valid_crossings,
+            }
         return policy, value
 
 

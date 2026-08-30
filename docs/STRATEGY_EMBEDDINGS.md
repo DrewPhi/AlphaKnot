@@ -102,6 +102,26 @@ depth-balanced aggregate. On-policy occupancy is a secondary analysis because
 model-specific trajectories change the datapoint distribution; every model
 must first be evaluated on the common probe panel.
 
+### Cross-crossing matched pilot panel
+
+The first 3--8 crossing PHATE pilot uses the versioned panel
+`repeat-all-n3-nonterminal-v1`. Its 19 probe IDs are all nonterminal ternary
+states on three crossings. For an `n`-crossing diagram, each three-coordinate
+pattern repeats periodically through canonical PD traversal order. This gives
+every knot the same 19 probe identities, a 19-by-hidden-width activation matrix,
+and a directly comparable 19-by-19 diffusion operator.
+
+This small cross-size panel is an exploratory alignment device, not a
+replacement for the complete 2,059-state seven-crossing and 6,305-state
+eight-crossing operators. Report the full within-crossing operators separately;
+test alternative common-random-number panels before treating cross-size PHATE
+neighborhoods as a robust result.
+
+The pilot's primary activation is the 192-dimensional GELU output immediately
+before the scalar value projection. The final graph token and mean final
+crossing token are exported as controls. The kernel is a symmetric self-tuning
+Gaussian using the fifth-neighbor bandwidth, followed by row normalization.
+
 ## Knot and shadow embeddings
 
 The immediate object is a strategy on a PD shadow. A knot-type embedding claim
