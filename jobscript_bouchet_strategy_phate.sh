@@ -17,7 +17,8 @@ export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 
 cd "$SLURM_SUBMIT_DIR"
-python -m pip install --quiet -r requirements-analysis.txt
+python -m pip install --quiet --upgrade -r requirements-analysis.txt
+python -c "import numpy, pandas, sklearn, phate, torch_geometric; print('analysis versions:', numpy.__version__, pandas.__version__, sklearn.__version__, phate.__version__)"
 python strategy_diffusion_phate.py \
   --checkpoint checkpoints/prime3to8_v192_l6_b256_lr1e3.pth.tar \
   --hidden-dim 192 \
