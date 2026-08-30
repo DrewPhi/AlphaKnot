@@ -181,3 +181,50 @@ represent the complete fixed-shadow minimax strategy once supplied with
 topology-derived positional identity and trained without dropout. It remains a
 supervised exact-table capacity result, not evidence that AlphaZero self-play
 has discovered the strategy or that the model generalizes to unseen shadows.
+
+### Mixed-size prime-knot capacity sweep 24128608
+
+- Date: 2026-08-30
+- Commit: `4a163c1`
+- Cluster: Yale Bouchet, 1 RTX 5000 Ada GPU
+- Corpus: 35 standard Spherogram prime-knot diagrams, `3_1` through `8_21`
+- Dataset: 149,319 exact-supervised nonterminal states
+- Shared configuration: batch size 256, zero dropout and weight decay, seed 0
+- Elapsed time: 7 hours 56 minutes for three sequential trials
+
+| Architecture | Solved epoch | Policy | Value sign | Solved |
+| --- | ---: | ---: | ---: | :---: |
+| Width 192, 6 layers, LR 0.001 | 190 | 149,319/149,319 | 149,319/149,319 | YES |
+| Width 256, 6 layers, LR 0.001 | 250 | 149,319/149,319 | 149,319/149,319 | YES |
+| Width 256, 8 layers, LR 0.0005 | 230 | 149,319/149,319 | 149,319/149,319 | YES |
+
+Every individual catalog knot passed the exact policy and value gate. This is
+shared supervised representational capacity: the targets came from complete
+minimax tables, rather than AlphaZero self-play. The width-192 checkpoint is the
+primary representation-analysis model because it is the smallest and reached
+the gate earliest.
+
+### Penultimate-activation diffusion PHATE run 24228941
+
+- Date: 2026-08-30
+- Analysis commit: `72cd58d`
+- Model commit: `4a163c1`
+- Checkpoint SHA-256:
+  `c28da11b32bc7b9e54cc79ebd2fb64f9ff8868872670278ba5aef4be85114c43`
+- Cluster: Yale Bouchet, 1 RTX 5000 Ada GPU
+- Elapsed time: 4 minutes 13 seconds
+- Primary activation: 192-dimensional value-head penultimate GELU output
+- Probe panel: 19 matched, model-independent nonterminal states per knot,
+  `repeat-all-n3-nonterminal-v1`
+- Kernel: fifth-neighbor self-tuning Gaussian followed by row normalization
+- Outputs: 35 activation matrices of shape 19 by 192, 35 diffusion operators
+  of shape 19 by 19, operator-distance PHATE, and 665-state activation PHATE
+- PHATE automatic diffusion times: 11 for knot operators and 19 for states
+
+The pilot plot shows strong crossing-count organization: 31 of 35 knots have a
+same-crossing-number nearest neighbor in the two-dimensional PHATE embedding.
+This statistic is descriptive, uncorrected for the imbalanced number of knot
+types at each crossing count, and based on the visualization rather than the
+original operator distances. It is exploratory evidence only. Within-crossing
+full probe panels, multiple seeds, untrained/topology controls, and invariant
+enrichment tests are required before making a strategic-geometry claim.
