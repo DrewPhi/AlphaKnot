@@ -68,10 +68,11 @@ explicitly open.
 Structural plus determinism validation covers all $21 \times 256$
 eight-crossing terminals: label multiplicities, cyclic under-strand
 adjacency, well-defined signs, Jones determinism, and invariance under
-canonical relabeling (\texttt{validate\_8crossing\_terminals.py}). The corpus
-manifest and splits are frozen with checksums and leakage tests. Still
-required before raising \texttt{max\_validated\_crossings} to eight or
-claiming production readiness: the independent SnapPy/KnotInfo invariant
-comparison, a short two-GPU SLURM smoke confirming DDP checkpoint
-synchronization on current code, and separate CPU/GPU/memory profiling of
-self-play, training, and arena phases.
+canonical relabeling (\texttt{validate\_8crossing\_terminals.py}). The full
+55-test suite, the eight-crossing validation (5,376 terminals), and the
+35-record manifest leakage check all pass on the current worktree (Bouchet job
+26332105, under two minutes). Still required before raising
+\texttt{max\_validated\_crossings} to eight or claiming production readiness:
+the independent SnapPy/KnotInfo invariant comparison, a short two-GPU SLURM
+smoke confirming DDP checkpoint synchronization on current code, and separate
+CPU/GPU/memory profiling of self-play, training, and arena phases.

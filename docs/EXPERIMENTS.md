@@ -228,3 +228,31 @@ types at each crossing count, and based on the visualization rather than the
 original operator distances. It is exploratory evidence only. Within-crossing
 full probe panels, multiple seeds, untrained/topology controls, and invariant
 enrichment tests are required before making a strategic-geometry claim.
+
+### Current-code validation run 26332105
+
+- Date: 2026-09-15
+- Code: rsync of local `dd7b6bc` worktree plus uncommitted manifest/validation
+  files (`pd_code_utils.py` md5 `267c5364`); remote git HEAD `72cd58d`
+- Cluster: Yale Bouchet, 1 RTX 5000 Ada GPU, `gpu_devel`, 6 CPUs
+- Elapsed time: 1 minute 55 seconds
+- Full unit suite: **55 tests, OK** (includes torch-dependent graph, MCTS,
+  checkpoint, capacity, diffusion, and manifest tests)
+- Eight-crossing structural validation: **21 shadows x 256 terminals = 5,376
+  terminals, all pass** (label multiplicities, cyclic under-strand adjacency,
+  well-defined signs, Jones determinism, canonical-relativization invariance)
+- Manifest: 35 records, leakage check passes
+- Per-knot Jones=1 counts recorded in job log (e.g. `8_3: 156`, `8_18: 88`)
+
+This re-validates the synced worktree end to end. It does not replace the
+independent SnapPy/KnotInfo invariant comparison required before raising
+`max_validated_crossings`.
+
+### Multi-seed shared-capacity runs 26332106/26332107
+
+- Date: 2026-09-15 (submitted; pending at time of writing)
+- Configuration: width-192 six-layer variable port transformer, batch 256,
+  LR 0.001, 20 warmup epochs, 300 epochs, seeds 1 and 2 (seed 0 established in
+  run 24128608)
+- Purpose: G1 exit-gate optimization-variance estimate for the primary
+  representation-analysis configuration
