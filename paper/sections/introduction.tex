@@ -1,0 +1,64 @@
+\section{Introduction}
+\label{sec:introduction}
+
+Given the shadow of a knot diagram---the four-valent planar projection with
+crossing signs forgotten---two players alternately decide each crossing until
+a complete diagram remains. One player, the \emph{knotter}, aims for a knotted
+diagram; the other, the \emph{unknotter}, aims for the unknot. We call this
+``to knot or not to knot.'' The game is finite, perfect-information, and
+zero-sum, and for small crossing numbers its full game tree fits comfortably in
+memory: a seven-crossing shadow admits $3^7 = 2{,}187$ partial states, of which
+2,059 are nonterminal and 128 are terminal. Every position is therefore exactly
+solvable by minimax, which makes the game an unusual laboratory: a neural
+search system can be trained by self-play, yet its every decision can be graded
+against ground truth.
+
+We pursue two goals. The first is engineering: solve as many finite knot-game
+instances as possible with AlphaZero-style self-play~\cite{silver2017mastering}
+and Monte Carlo tree search. The second is scientific: inspect the learned
+policy, value, and internal representations for recurring combinatorial
+principles, embed knots by strategic similarity rather than by classical
+invariants alone, and compare the two geometries in search of conjectures. This
+paper reports the foundation on which both goals rest: a validated game
+implementation with exact ground truth, a PD-native architecture with certified
+representational capacity, a versioned corpus with frozen evaluation splits,
+and a first exploratory map of learned strategy space.
+
+\subsection{Contributions}
+\label{sec:contributions}
+
+\begin{itemize}
+    \item A validated crossing-resolution game on oriented PD shadows with
+        exhaustive minimax tables. The fixed seven-crossing production shadow
+        has 2,187 partial states (2,059 nonterminal), 128 terminal resolutions
+        of which 70 satisfy the Jones$=1$ terminal rule, a forced win for the
+        player to move's opponent (the unknotter under the production
+        knotter-first roles), and 14 mutually optimal opening actions
+        (Section~\ref{sec:exact}).
+    \item A PD-native port-graph transformer that reaches exhaustive
+        \texttt{SOLVED: YES} by exact supervision: 2,059/2,059 optimal
+        top-policy actions with 99.70\% mean optimal mass and 2,059/2,059
+        correct value signs on the fixed shadow (Bouchet job 23989965, epoch
+        512), and 149,319/149,319 on both criteria for one shared
+        variable-size model over the 35-diagram prime catalog from three
+        through eight crossings (Bouchet job 24128608, three architectures).
+        Both are representational-capacity results using exact labels, not
+        self-play discovery or generalization (Section~\ref{sec:results}).
+    \item A versioned manifest with frozen knot-type-disjoint train, validation,
+        and test splits (\texttt{corpus\_manifest.py}; ROADMAP G1.1/G2 gate~3),
+        structural plus determinism validation of all $21 \times 256$
+        eight-crossing terminals
+        (\texttt{validate\_8crossing\_terminals.py}), and a documented negative
+        result: the end-to-end AlphaZero self-play run (job 23623670) reaches
+        only 71.73\% optimal top-policy actions and does not solve the fixed
+        shadow (Section~\ref{sec:validation}).
+    \item An exploratory activation-diffusion/PHATE pilot over the solved
+        shared checkpoint (job 24228941) with a preregistered control checklist
+        that must pass before any strategic-geometry claim
+        (Section~\ref{sec:representations}).
+\end{itemize}
+
+Explicit non-claims: the AlphaZero self-play run did not solve the fixed
+shadow; shared capacity used exact labels and is not generalization; the
+Jones$=1$ terminal rule is the game's definition of a win, not a general
+unknot-recognition theorem (see \texttt{AGENTS.md} sources of truth).

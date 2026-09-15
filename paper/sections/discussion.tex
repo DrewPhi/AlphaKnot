@@ -1,0 +1,50 @@
+\section{Discussion}
+\label{sec:discussion}
+
+A finite collection of game instances can be certified by exhaustive
+computation; a general knot-theoretic claim cannot. That distinction structures
+everything above: \texttt{SOLVED: YES} certifies a finite minimax table, while
+a reusable tactical motif---say, a local crossing pattern whose resolution is
+provably optimal across a shadow family, or an MCTS principal variation that
+recurs across knot types---would require a mathematical argument or a formally
+justified reduction before it becomes a lemma. The Lean formalization of PD
+signs, flips, and the crossing-resolution game is the scaffold for such
+reductions; the solved trefoil, figure-eight, and $5_2$ games it already
+certifies are the base cases.
+
+The trained agent's principal variations are the concrete hunting ground: every
+optimal line the exact tables endorse is a candidate motif awaiting
+generalization. The diffusion operators of Section~\ref{sec:representations}
+offer a complementary, global view---strategic similarity at scale---but their
+pilot organization by crossing count may reflect diagram size as much as
+strategy, which is precisely what the control checklist is designed to
+disentangle.
+
+\subsection{Limitations}
+\label{sec:limitations}
+
+\begin{itemize}
+    \item Supervised capacity only; no self-play solution yet. The AlphaZero
+        run reaches 71.73\% optimal top-policy play on the fixed shadow.
+    \item One table diagram per knot type; knot-level claims need multi-diagram
+        robustness and shadow-level dedup beyond the current manifest.
+    \item Eight-crossing production bound not yet raised (independent
+        validation pending); larger crossing numbers need validated terminal
+        classification and new exact-table budgets ($3^9 = 19{,}683$ states per
+        shadow at nine crossings).
+    \item Diffusion geometry exploratory; all quantitative controls pending.
+    \item Single-seed shared capacity; optimization variance unmeasured until
+        the multi-seed jobs complete.
+\end{itemize}
+
+\subsection{Next steps}
+\label{sec:next}
+
+In near-term order (ROADMAP): multi-seed mixed-size capacity with variance
+reporting; independent eight-crossing invariant validation and bound decision;
+richer diagram/shadow metadata with additional non-tabulated diagrams under
+frozen splits; a shared variable-size AlphaZero self-play run graded by raw
+versus MCTS policy against exact tables; canonical activation/MCTS export at
+all five stages; and diffusion comparison with the full control battery. Each
+step lands in \texttt{docs/EXPERIMENTS.md} with commit, job ID, configuration,
+elapsed time, exact metrics, and verdict before it enters this paper.

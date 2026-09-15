@@ -1,0 +1,77 @@
+\section{Results}
+\label{sec:results}
+
+\subsection{Fixed seven-crossing shadow}
+\label{sec:seven}
+
+The production shadow (the single seven-crossing PD code in
+\texttt{config.py}) admits an instructive failure-then-success arc. End-to-end
+AlphaZero self-play (job 23623670; 20 iterations, 64 episodes each, 50 MCTS
+simulations) reaches only 71.73\% optimal top-policy actions, 71.52\% mean
+optimal mass, and 65.27\% value-sign accuracy: certified \textbf{NO}. Exact
+supervision of the original graph transformer (job 23748144) stalls at nearly
+identical numbers (71.49\% / 71.44\% / 65.42\%: \textbf{NO}), showing the
+bottleneck is representational rather than a self-play defect. Ordered-PD
+concatenation (job 23760015) and explicit crossing-state attachment (job
+23766423) each remain at \textbf{NO}, while a width-256 MLP over the seven
+categorical crossing states solves the table in 38~seconds (job 23775537:
+100.00\% / 99.60\% / 100.00\%: \textbf{YES})---validating targets, batching,
+and losses, and isolating the failure to the graph model's message
+passing/readout. A PD-native port transformer without positions still fails
+(job 23801341: \textbf{NO}); adding deterministic first-encounter PD traversal
+positions closes all but 3 policy and 8 value states in a four-way sweep (job
+23987732), and the tuned configuration (width-128, state residual, traversal
+positions, cosine schedule, no dropout; job 23989965) solves the table at epoch
+512 in under three minutes: 2,059/2,059 optimal top-policy actions at 99.70\%
+mean optimal mass with 2,059/2,059 correct value signs (\textbf{YES}).
+
+\begin{table}[h]
+\centering
+\caption{Fixed-shadow capacity summary. All rows use the 2,059 nonterminal
+states of the production seven-crossing shadow; self-play row included for
+contrast. \textbf{YES} requires 100\% optimal top-policy actions and 100\%
+value-sign agreement.}
+\begin{tabular}{lrrr}
+\toprule
+Run & Policy & Value sign & Solved \\
+\midrule
+AlphaZero self-play 23623670 & 71.73\% & 65.27\% & NO \\
+Graph transformer 23748144 & 71.49\% & 65.42\% & NO \\
+Ordered-PD 23760015 & 71.69\% & 65.37\% & NO \\
+Direct state 23766423 & 72.03\% & 65.32\% & NO \\
+Crossing-state MLP 23775537 & 100.00\% & 100.00\% & YES \\
+Port transformer 23801341 & 72.12\% & 65.27\% & NO \\
++PD traversal (sweep 23987732) & 99.85\% & 99.61\% & NO \\
+Tuned PD-position 23989965 & 100.00\% & 100.00\% & YES \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Shared prime catalog (3--8 crossings)}
+\label{sec:shared}
+
+The mixed-size sweep (job 24128608; 35 Spherogram diagrams, 149,319
+exact-supervised nonterminal states, seed~0) reaches \textbf{YES} for all three
+architectures with per-knot \texttt{SOLVED} lines for every catalog member: the
+width-192 six-layer model at epoch~190, width-256 six-layer at epoch~250, and
+width-256 eight-layer at epoch~230, each 149,319/149,319 on policy and value
+sign in 7~hours 56~minutes total. The width-192 checkpoint is the primary
+representation-analysis model as the smallest and earliest solver. Multi-seed
+repetition of the width-192 configuration (seeds~1--2, jobs pending at time of
+writing) is required by the G1 exit gate before variance can be reported; the
+paper's claim is therefore stated for the completed seed with the gate
+explicitly open.
+
+\subsection{Validation status}
+\label{sec:validation}
+
+Structural plus determinism validation covers all $21 \times 256$
+eight-crossing terminals: label multiplicities, cyclic under-strand
+adjacency, well-defined signs, Jones determinism, and invariance under
+canonical relabeling (\texttt{validate\_8crossing\_terminals.py}). The corpus
+manifest and splits are frozen with checksums and leakage tests. Still
+required before raising \texttt{max\_validated\_crossings} to eight or
+claiming production readiness: the independent SnapPy/KnotInfo invariant
+comparison, a short two-GPU SLURM smoke confirming DDP checkpoint
+synchronization on current code, and separate CPU/GPU/memory profiling of
+self-play, training, and arena phases.

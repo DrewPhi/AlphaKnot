@@ -1,0 +1,55 @@
+\section{Methods}
+\label{sec:methods}
+
+\subsection{Architecture}
+\label{sec:architecture}
+
+Game states are graphs with one node per crossing. Node features carry the
+ordered PD tuple plus the ternary resolution state; edges pair the two
+occurrences of each arc label with the strand identity and its under/over
+resolution status. The primary model (\texttt{PortGraphTransformerNet} in
+\texttt{knot\_graph\_nnet.py}) first runs typed message passing over the four
+half-edges (ports) of every crossing---self, cyclic neighbors, opposite
+strand, and same-arc peer---then pools ports to crossing tokens, adds a direct
+crossing-state residual and a positional signal, and applies a global
+transformer with a graph token for the value head and per-crossing keep/switch
+logits for the policy head. Positions use deterministic first-encounter PD
+traversal ranks (or, in the variable-size model, scale-free sinusoidal/linear
+traversal features with no crossing-count-indexed lookup), so identity derives
+from diagram topology rather than arbitrary list order. Fixed-shadow controls
+include a crossing-state MLP and a dense PD-state MLP
+(\texttt{capacity\_test.py}); the AlphaZero loop itself follows the standard
+pattern---MCTS with network priors, self-play episode generation, network
+training, and arena gating of champions (\texttt{mcts.py}, \texttt{coach.py},
+\texttt{arena.py}).
+
+\subsection{Corpus and manifest}
+\label{sec:corpus}
+
+\texttt{prime\_knot\_corpus.py} stores 35 standard Spherogram table diagrams,
+one per prime knot type from $3_1$ through $8_{21}$ ($3{:}1$, $4{:}1$, $5{:}2$,
+$6{:}3$, $7{:}7$, $8{:}21$). These are table \emph{diagrams}, not an
+enumeration of shadows; strategy formally belongs to a shadow game, and any
+knot-type-level claim requires robustness across diagrams.
+\texttt{corpus\_manifest.py} assigns each record a stable \texttt{shadow\_id}
+(hash of the canonical PD), source identifier, canonicalization version,
+equivalence group over relabelings and permutations, frozen split, and
+exact-table availability with an on-demand exact-table checksum
+(\texttt{prime-catalog-v1}). Splits are knot-type-disjoint with singletons kept
+in train so every crossing count is represented; canonical relabelings of one
+object can never leak across a split (\texttt{assert\_no\_leakage}).
+
+\subsection{Training regimes}
+\label{sec:training}
+
+We distinguish three settings (ROADMAP G1.3): (i) \emph{per-shadow capacity},
+exact-table supervision and exhaustive evaluation on one shadow;
+(ii) \emph{shared supervised capacity}, one variable-size model fit to exact
+tables from many shadows with hierarchical sampling over crossing number, knot
+identity, and depth (\texttt{variable\_size\_capacity\_test.py}, supporting
+\texttt{--split} for frozen train/validation/test reporting); and
+(iii) \emph{held-out generalization}, evaluation on frozen shadows or knot
+types whose exact tables supplied no training label. Only (iii) may be called
+generalization. Self-play (G1.4) trains without exact targets and is compared
+to minimax by raw-network policy, fixed-budget MCTS policy, and exact tables
+on every tractable shadow.

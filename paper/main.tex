@@ -1,0 +1,33 @@
+% AlphaKnot paper draft scaffold.
+% Build with: cd paper && make
+% Requires: pdflatex + bibtex (or latexmk -pdf main.tex).
+
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\setlength{\emergencystretch}{6em}
+
+\title{AlphaKnot: Learning Strategic Representations of Knot Games}
+\author{TODO: author list}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\input{sections/abstract}
+\end{abstract}
+
+\input{sections/introduction}
+\input{sections/game}
+\input{sections/methods}
+\input{sections/results}
+\input{sections/representations}
+\input{sections/discussion}
+
+\bibliographystyle{plain}
+\bibliography{refs}
+\end{document}

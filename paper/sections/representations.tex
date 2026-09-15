@@ -1,0 +1,56 @@
+\section{Strategy representations and diffusion geometry}
+\label{sec:representations}
+
+The network is a game-playing device and, we hypothesize, a strategy
+microscope. Once a competent policy/value network exists, its hidden
+representations of knot positions can be embedded, clustered by strategic
+similarity, and compared against classical invariants---potentially surfacing
+motifs that become conjectures. The protocol below
+(\texttt{docs/STRATEGY\_EMBEDDINGS.md}) is the preregistered design; the pilot
+is exploratory until its controls run.
+
+\subsection{Probe panels and operators}
+\label{sec:probes}
+
+A datapoint is a nonterminal partial resolution state indexed in canonical PD
+traversal order, so the same ternary pattern means the same probe state on
+every same-size shadow. Panels are fixed before evaluation and independent of
+any agent's visitation: all 2,059 nonterminal patterns at seven crossings, all
+6,305 at eight, and the versioned cross-size pilot panel
+\texttt{repeat-all-n3-nonterminal-v1} (19 matched states per knot, three
+coordinates repeated periodically through traversal order). Activations are
+exported at five stages---post-message-passing port tokens, crossing tokens,
+graph token, and penultimate policy/value representations---and each stage
+yields a separate diffusion operator via pairwise distances, a versioned
+self-tuning Gaussian kernel (fifth-neighbor bandwidth in the pilot) with row
+normalization, and optional depth stratification. A parallel MCTS behavioral
+operator from full legal-action vectors (prior $p$, visits $\pi$, counts $N$,
+values $Q$, network $v$) tests whether internal geometry tracks raw or
+search-improved strategy, with $\mathrm{KL}(\pi_{\mathrm{MCTS}}\,\|\,p)$
+measuring search correction at fixed budget.
+
+\subsection{Pilot observation}
+\label{sec:pilot}
+
+From the solved width-192 checkpoint
+(\texttt{c28da11b\ldots}, job 24228941): 35 activation matrices ($19 \times
+192$), 35 diffusion operators ($19 \times 19$), and operator-distance plus
+665-state PHATE maps~\cite{moon2019visualizing} (automatic diffusion times 11
+and 19) computed in 4~minutes 13~seconds. The pilot plot organizes strongly by
+crossing count: 31 of 35 knots have a same-crossing-number nearest neighbor in
+the two-dimensional embedding. This statistic is descriptive, uncorrected for
+class imbalance across crossing numbers, and computed on the visualization
+rather than the operator distances---exploratory evidence only.
+
+\subsection{Controls}
+\label{sec:controls}
+
+No strategic-geometry claim may be made until: within-crossing full panels
+(2,059-state $n{=}7$, 6,305-state $n{=}8$) replace the 19-state pilot;
+operators are compared quantitatively, not via 2-D neighborhoods; at least
+three training seeds establish stability; untrained, topology-only, solved-MLP,
+randomized-policy, relabeling/permutation, multi-diagram, and held-out-split
+controls run; invariant enrichment uses held-out prediction with
+reward-circular (Jones-adjacent) invariants deprioritized. The manifest
+records checkpoint and panel hashes, representation versions, kernel and PHATE
+settings, and package versions for every map.

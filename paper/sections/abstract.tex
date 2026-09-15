@@ -1,0 +1,17 @@
+We introduce a two-player crossing-resolution game played on oriented planar
+diagram (PD) shadows of knots, together with an AlphaZero-style self-play
+system that learns policy and value functions over PD states with a PD-native
+graph transformer. For every tractable shadow we compute the complete minimax
+solution by exhaustive enumeration, so learned strategies can be graded against
+ground truth rather than against other heuristics. A PD-position port
+transformer reproduces the full minimax strategy of a seven-crossing shadow
+(2,059/2,059 optimal policy decisions and correct value signs), and one shared
+variable-size model reproduces all 149,319 exact decisions across the 35
+standard prime-knot table diagrams from three through eight crossings. These
+are supervised representational-capacity results: the targets come from exact
+tables, so they establish that the architecture can express the solution, not
+that self-play discovered it or that it generalizes to held-out shadows. The
+frozen corpus manifest with knot-type-disjoint splits defines the generalization
+test, and an exploratory diffusion-geometry pilot over learned activations
+suggests strategically organized knot embeddings whose quantitative validation
+remains future work.

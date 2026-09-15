@@ -1,0 +1,71 @@
+\section{The knot game on PD shadows}
+\label{sec:game}
+
+\subsection{PD conventions}
+\label{sec:pd}
+
+We use the standard planar diagram convention documented by
+KnotInfo~\cite{knotinfo-pd} and the Knot Atlas~\cite{katlas-pd}; see also
+Kauffman~\cite{kauffman-mlinks} and Mastin~\cite{mastin2013links} for code
+representations, crossing changes, and the relation to Reidemeister moves. A
+crossing is written
+\[
+X[a,b,c,d],
+\]
+read counterclockwise beginning with the incoming under-strand. Hence
+\[
+\boxed{(a,c)\text{ is the under-strand}},\qquad
+\boxed{(b,d)\text{ is the over-strand}}.
+\]
+Strand pairing is positional: implementations must never sort the four labels
+and reconstruct strands by numerical adjacency. Production inputs are oriented,
+one-component PD codes with consecutive one-based edge labels $1,\dots,2c$ for
+$c$ crossings, advancing cyclically along the knot ($n \to 1$). Under this
+convention a positive crossing has its over-strand oriented $d \to b$
+(\texttt{pd\_code\_utils.crossing\_sign}); the cyclic successor rule makes a
+naive integer comparison such as \texttt{b > d} incorrect at wraparound
+crossings, e.g.\ $[7,1,8,14]$, whose over-strand runs $14 \to 1$. A crossing
+change is the one-place cyclic rotation $[a,b,c,d] \to [d,a,b,c]$ for positive
+crossings and $[a,b,c,d] \to [b,c,d,a]$ for negative ones
+(\texttt{flip\_crossing}), and flipping twice is the identity---a fact proved
+in general in the companion Lean formalization and regression-tested in Python.
+External PD codes are quotiented by traversal basepoint, component
+orientation, and crossing-list order in
+\texttt{pd\_code\_utils.canonicalize\_pd\_code} (version
+\texttt{oriented-dihedral-v1}), which returns reversible canonical/source
+action maps; graph construction pairs the two occurrences of every arc label
+directly (serializer \texttt{pd-arc-incidence-v2}) rather than inferring
+incidence from tuple slots.
+
+\subsection{Game rules and terminal classification}
+\label{sec:rules}
+
+Fix an unresolved shadow with $c$ crossings. A state assigns each crossing one
+of three values: unresolved, keep (choice~0), or switch (choice~1), giving
+$3^c$ partial states. Action $2i+j$ resolves crossing~$i$ with choice~$j$; play
+alternates with the knotter moving first in production
+(\texttt{config.knotter\_first = True}). At a terminal state the resolved PD
+code is classified by the normalized Jones polynomial computed with an
+exhaustive Kauffman-bracket evaluator ($2^c$ smoothing states, cached by PD
+code; \texttt{knot\_invariants.py}). The player assigned the unknotter wins
+exactly when the polynomial equals~1.
+
+The Jones$=1$ criterion is the \emph{game rule}, not a mathematical claim that
+the Jones polynomial detects the unknot in general---it is not known to do so.
+Classification is therefore fenced by \texttt{config.max\_validated\_crossings}
+(currently seven): raising the bound requires an independent table comparison,
+and any out-of-range diagram raises rather than guessing. Terminal evaluation
+is fail-loud throughout.
+
+\subsection{Exact solution}
+\label{sec:exact}
+
+\texttt{exact\_solver.py} evaluates every state by minimax from the
+player-to-move viewpoint ($\pm 1$), with terminal values from the winner
+identity above and interior values by negation-maximization over legal actions.
+\texttt{evaluate\_exact.py} grades a learned checkpoint against these tables
+with the \texttt{SOLVED} criterion: the highest-probability legal action must
+be minimax-optimal \emph{and} the value sign must agree with exact minimax at
+\emph{every} nonterminal state of each exact-evaluable shadow. Arena win rates
+against past champions or random players are diagnostics only; the exact table
+is authoritative and the sole basis for any solved claim.
