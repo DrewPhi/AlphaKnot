@@ -42,6 +42,30 @@ the two-dimensional embedding. This statistic is descriptive, uncorrected for
 class imbalance across crossing numbers, and computed on the visualization
 rather than the operator distances---exploratory evidence only.
 
+Coloring the same embedding by classical invariants from the KnotInfo snapshot
+(determinant, $|\mathrm{signature}|$, Seifert genus, alternating, fibered;
+\texttt{phate\_invariant\_colors.py}, 35/35 knots joined) shows no evident
+independent structure: the three non-alternating knots ($8_{19}$--$8_{21}$)
+scatter, and fibered knots intermix with non-fibered ones
+(Figure~\ref{fig:phate-fibered}). Operator-distance nearest neighbors confirm
+this in the unprojected space: crossing number agrees for 30/35 knots against
+a 0.39 chance baseline, while fibered (15/35 vs.\ 0.50), genus (12/35
+vs.\ 0.35), and determinant (0/35 vs.\ 0.03) match chance, and alternating
+(33/35 vs.\ 0.84) barely beats its imbalanced baseline. At pilot resolution,
+learned strategy geometry tracks diagram size, not classical invariants---an
+informative negative result that sets the confound the required
+within-crossing controls must beat.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.8\textwidth]{figs/phate_by_fibered.png}
+\caption{Pilot strategy-diffusion PHATE colored by fibered status
+(Y~$n{=}20$, N~$n{=}15$). No separation is visible; operator-distance
+nearest-neighbor agreement (15/35) matches chance (0.50). Exploratory:
+19-state panel, seed~0, controls pending.}
+\label{fig:phate-fibered}
+\end{figure}
+
 \subsection{Controls}
 \label{sec:controls}
 

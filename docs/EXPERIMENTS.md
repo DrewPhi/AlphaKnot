@@ -229,6 +229,34 @@ original operator distances. It is exploratory evidence only. Within-crossing
 full probe panels, multiple seeds, untrained/topology controls, and invariant
 enrichment tests are required before making a strategic-geometry claim.
 
+### Invariant-colored PHATE pilot (local analysis)
+
+- Date: 2026-09-16
+- Inputs: `knot_operator_phate.csv` + `strategy_diffusion_data.npz` from job
+  24228941; KnotInfo snapshot (`database_knotinfo`, `knotinfo_data_complete.csv`)
+  for determinant, signature, Seifert genus, alternating, fibered
+- Script: `phate_invariant_colors.py --knotinfo-csv ...` (35/35 knots joined;
+  |signature| plotted since KnotInfo hands may differ from corpus hands)
+- Operator-distance nearest-neighbor agreement (35 knots):
+
+| Attribute | NN agree | Random baseline |
+| --- | --- | --- |
+| Crossing number | 30/35 (0.86) | 0.39 |
+| Alternating | 33/35 (0.94) | 0.84 |
+| Fibered | 15/35 (0.43) | 0.50 |
+| Genus | 12/35 (0.34) | 0.35 |
+| Determinant | 0/35 (0.00) | 0.03 |
+
+- Reading: strategy geometry strongly tracks crossing number in operator space
+  itself (not just the 2-D view). No classical invariant shows signal beyond
+  its correlation with crossing count: fibered/genus match chance, alternating
+  beats a very high baseline by little, determinant never matches. The three
+  non-alternating knots (8_19--8_21) scatter rather than cluster.
+- Status: informative negative result at pilot resolution. Within-crossing
+  panels and the required controls must precede any positive geometry claim;
+  the confound to beat is diagram size, which correlates with genus,
+  determinant magnitude, and the pilot's 19-state probe itself.
+
 ### Current-code validation run 26332105
 
 - Date: 2026-09-15
