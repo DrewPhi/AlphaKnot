@@ -1,9 +1,6 @@
 from collections import Counter
 from dataclasses import dataclass
 
-import torch
-from torch_geometric.data import Data
-
 
 PD_CANONICALIZATION_VERSION = "oriented-dihedral-v1"
 GRAPH_REPRESENTATION_VERSION = "pd-arc-incidence-v2"
@@ -112,6 +109,10 @@ def serialize_graph(graph_data):
 
 def deserialize_graph(payload):
     """Reconstruct a PyG graph from :func:`serialize_graph` output."""
+    from torch_geometric.data import Data
+
+    import torch
+
     required = {"x", "edge_index", "edge_attr"}
     if set(payload) != required:
         raise ValueError(f"Invalid serialized graph keys: {set(payload)}")
