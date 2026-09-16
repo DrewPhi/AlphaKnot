@@ -47,7 +47,10 @@ Coloring the same embedding by classical invariants from the KnotInfo snapshot
 \texttt{phate\_invariant\_colors.py}, 35/35 knots joined) shows no evident
 independent structure: the three non-alternating knots ($8_{19}$--$8_{21}$)
 scatter, and fibered knots intermix with non-fibered ones
-(Figure~\ref{fig:phate-fibered}). Operator-distance nearest neighbors confirm
+(Figure~\ref{fig:phate-fibered}). The determinant coloring instead shows the
+expected crossing-count-correlated gradient
+(Figure~\ref{fig:phate-determinant})---the confound in visual form.
+Operator-distance nearest neighbors confirm
 this in the unprojected space: crossing number agrees for 30/35 knots against
 a 0.39 chance baseline, while fibered (15/35 vs.\ 0.50), genus (12/35
 vs.\ 0.35), and determinant (0/35 vs.\ 0.03) match chance, and alternating
@@ -64,6 +67,16 @@ within-crossing controls must beat.
 nearest-neighbor agreement (15/35) matches chance (0.50). Exploratory:
 19-state panel, seed~0, controls pending.}
 \label{fig:phate-fibered}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.8\textwidth]{figs/phate_by_determinant.png}
+\caption{Same pilot embedding colored by determinant. The visible gradient
+follows crossing number, with which determinant magnitude correlates---the
+size confound that within-crossing panels must remove before any invariant
+claim.}
+\label{fig:phate-determinant}
 \end{figure}
 
 \subsection{Controls}
