@@ -69,3 +69,27 @@ be minimax-optimal \emph{and} the value sign must agree with exact minimax at
 \emph{every} nonterminal state of each exact-evaluable shadow. Arena win rates
 against past champions or random players are diagnostics only; the exact table
 is authoritative and the sole basis for any solved claim.
+
+\subsection{Formalization}
+\label{sec:lean}
+
+The companion Lean development (\texttt{LeanKnot/}, verified by
+\texttt{lake build}) mirrors the Python game logic and certifies its core
+combinatorial facts. \texttt{PD.lean} formalizes the oriented cyclic
+convention---\texttt{nextLabel}, \texttt{crossingSign} returning an
+\texttt{Option} that models the Python \texttt{ValueError} on ill-formed
+crossings, and \texttt{flipCrossing}---and proves the general involution
+theorem: flipping twice is the identity on label-bounded crossings with a
+directed under-strand and a well-defined sign, via a no-2-cycle lemma for
+\texttt{nextLabel} when $n > 2$. \texttt{Game.lean} formalizes the
+crossing-resolution game (unresolved/keep/switch cells, legal actions
+$2i+j$, big-endian terminal indexing matching Python's
+\texttt{itertools.product} order) with fuel-bounded minimax and optimal-action
+sets. Three shadow games are certified by \texttt{decide}: the trefoil (2 of 8
+terminals knotted; knotter-first value $-1$ with all six openings optimal;
+unknotter-first value $+1$), the figure-eight (12 of 16 unknot; value $-1$
+under both role assignments, hence a second-player win), and $5_2$ (22 of 32
+unknot; unknotter wins under both assignments). The stated trust boundary is
+explicit: terminal oracle tables are computed by the Python exhaustive
+Kauffman-bracket evaluator, and Lean certifies validity, signs, involution,
+and minimax values \emph{given} those tables.
