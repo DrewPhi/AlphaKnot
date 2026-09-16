@@ -76,7 +76,12 @@ canonical relabeling (\texttt{validate\_8crossing\_terminals.py}). The full
 26332105, under two minutes). Beyond the production bound, all 49 KnotInfo
 nine-crossing table diagrams pass the same structural plus determinism battery
 over $49 \times 512 = 25{,}088$ terminals (local validation, 1,051~seconds).
-Still required before raising
+The independent comparison is concretely blocked, not merely pending:
+SnapPy~3.3.2's \texttt{jones\_polynomial} raises \texttt{SageNotAvailable} in
+the Bouchet environment (verified September~2026), so G2 gate~2 awaits a Sage
+installation, a Sage-free Jones implementation, or a mirror-aware KnotInfo
+polynomial-table comparison---KnotInfo table hands already differ from corpus
+hands (e.g.\ K3a1 is the mirror of \texttt{3\_1}). Still required before raising
 \texttt{max\_validated\_crossings} to eight or claiming production readiness:
 the independent SnapPy/KnotInfo invariant comparison, a short two-GPU SLURM
 smoke confirming DDP checkpoint synchronization on current code, and separate

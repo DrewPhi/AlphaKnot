@@ -302,3 +302,17 @@ Structural precondition only. Exact tables at $n=9$ ($3^9 = 19{,}683$ states
 per shadow) remain feasible but are not yet run, and the independent
 SnapPy/KnotInfo invariant comparison is still required before any production
 bound change.
+
+### Independent-comparison blocker (SnapPy Jones needs Sage)
+
+- Date: 2026-09-16
+- Environment: Yale Bouchet `alphaknot` env, SnapPy 3.3.2, login node
+- Probe: `spherogram.Link(PD).jones_polynomial()` on the production
+  seven-crossing shadow raises `SageNotAvailable: Sorry, this feature requires
+  using SnapPy inside Sage`
+- Consequence: the G2-gate-2 independent invariant comparison cannot run in
+  the current Bouchet env. Options are a Sage installation (or Sage-packaged
+  `database_knotinfo`), a Sage-free Jones implementation such as Regina's, or
+  a polynomial-table comparison against KnotInfo Jones values with explicit
+  mirror handling (KnotInfo table hands already differ from corpus hands, cf.
+  K3a1 vs `3_1`). Until one lands, `max_validated_crossings` stays at seven.
