@@ -56,11 +56,12 @@ architectures with per-knot \texttt{SOLVED} lines for every catalog member: the
 width-192 six-layer model at epoch~190, width-256 six-layer at epoch~250, and
 width-256 eight-layer at epoch~230, each 149,319/149,319 on policy and value
 sign in 7~hours 56~minutes total. The width-192 checkpoint is the primary
-representation-analysis model as the smallest and earliest solver. Multi-seed
-repetition of the width-192 configuration (seeds~1--2, jobs pending at time of
-writing) is required by the G1 exit gate before variance can be reported; the
-paper's claim is therefore stated for the completed seed with the gate
-explicitly open.
+representation-analysis model as the smallest and earliest solver. Optimization
+variance is now partly measured: seed~1 (job 26332106, 2~hours 18~minutes)
+solves at epoch~230 with identical final metrics (149,319/149,319 on policy at
+99.99\% mean optimal mass and 149,319/149,319 on value sign; 35/35 per-knot
+\texttt{SOLVED: YES}), against seed~0's epoch~190. Seed~2 is queued; the G1
+three-seed gate closes when it reports.
 
 \subsection{Validation status}
 \label{sec:validation}
@@ -71,7 +72,10 @@ adjacency, well-defined signs, Jones determinism, and invariance under
 canonical relabeling (\texttt{validate\_8crossing\_terminals.py}). The full
 55-test suite, the eight-crossing validation (5,376 terminals), and the
 35-record manifest leakage check all pass on the current worktree (Bouchet job
-26332105, under two minutes). Still required before raising
+26332105, under two minutes). Beyond the production bound, all 49 KnotInfo
+nine-crossing table diagrams pass the same structural plus determinism battery
+over $49 \times 512 = 25{,}088$ terminals (local validation, 1,051~seconds).
+Still required before raising
 \texttt{max\_validated\_crossings} to eight or claiming production readiness:
 the independent SnapPy/KnotInfo invariant comparison, a short two-GPU SLURM
 smoke confirming DDP checkpoint synchronization on current code, and separate

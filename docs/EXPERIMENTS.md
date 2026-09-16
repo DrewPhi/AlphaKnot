@@ -250,9 +250,43 @@ independent SnapPy/KnotInfo invariant comparison required before raising
 
 ### Multi-seed shared-capacity runs 26332106/26332107
 
-- Date: 2026-09-15 (submitted; pending at time of writing)
+- Date: 2026-09-15 (seed 1 complete; seed 2 queued at time of writing)
 - Configuration: width-192 six-layer variable port transformer, batch 256,
-  LR 0.001, 20 warmup epochs, 300 epochs, seeds 1 and 2 (seed 0 established in
-  run 24128608)
+  LR 0.001, 20 warmup epochs, 300 epochs (seed 0 established in
+  run 24128608 at epoch 190)
 - Purpose: G1 exit-gate optimization-variance estimate for the primary
   representation-analysis configuration
+
+### Width-192 seed-1 run 26332106
+
+- Date: 2026-09-15
+- Code: rsync of local `dd7b6bc` worktree (same sync as run 26332105)
+- Cluster: Yale Bouchet, 1 RTX 5000 Ada GPU, 6 CPUs
+- Elapsed time: 2 hours 18 minutes 39 seconds
+- Solved at epoch: 230 (seed 0: epoch 190)
+- Final: policy 149,319/149,319 (100.00%) at 99.99% mean optimal mass,
+  value sign 149,319/149,319 (100.00%)
+- Per-knot verdicts: 35/35 `SOLVED: YES`, no `SOLVED: NO` lines
+- Certified shared-capacity-solved verdict: **YES**
+
+Two of three G1-gate seeds now solve with identical final metrics; only the
+solving epoch varies (190 vs 230). This remains shared supervised capacity,
+not generalization: every evaluated state supplied an exact label.
+
+### KnotInfo nine-crossing structural validation (local)
+
+- Date: 2026-09-15
+- Source: `/tmp/opencode/knotdb/PD_3-16.txt` (KnotInfo, one table diagram per
+  prime knot type; diagrams used as given, KnotInfo hand)
+- Scope: all 49 nine-crossing records (`K9a1`--`K9n8`), 512 terminals each =
+  25,088 terminals, 1,051 seconds on local CPU
+- Checks per terminal: label multiplicities 1..18 twice each, cyclic
+  under-strand adjacency, well-defined crossing signs, Jones determinism, and
+  canonical-relativization invariance; plus source-diagram Jones determinism
+- Result: **49/49 shadows pass** (Jones=1 counts range 204--326 per shadow;
+  game-rule outcomes, not knot identities)
+
+Structural precondition only. Exact tables at $n=9$ ($3^9 = 19{,}683$ states
+per shadow) remain feasible but are not yet run, and the independent
+SnapPy/KnotInfo invariant comparison is still required before any production
+bound change.
