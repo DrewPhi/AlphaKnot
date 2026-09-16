@@ -35,11 +35,13 @@
 ## In flight (check first on pickup)
 
 - Generalization jobs on Bouchet (train split -> eval test split,
-  width-192, 300 epochs, seeds 0/1/2): **26384918, 26384919, 26384920**,
-  submitted 2026-09-16 ~10:16 UTC-ish, QUEUED at last check. Each needs
-  ~1.5-2.5h once running. On completion: record per-knot `HELDOUT_SOLVED`
-  lines in `docs/EXPERIMENTS.md`, update `paper/sections/results.tex`,
-  rebuild, commit, push.
+  width-192, 300 epochs, seeds 0/1/2): **26384918, 26384919, 26384920, ALL
+  COMPLETE** (~1.7-1.9h each). Train SOLVED YES @235/245/235; held-out
+  15/15 NO (~71% policy). Recorded in `docs/EXPERIMENTS.md` + paper
+  `results/abstract/discussion` on 2026-09-16 (commit pending).
+- Next (user-approved 2026-09-16): exact supervision through 10 crossings
+  (Spherogram 9_x/10_x coverage verified OK on Bouchet), self-play past the
+  exact ceiling, arena + raw-vs-MCTS bar, then big PHATE + invariant coloring.
 - Next proposal (user-aligned "ideal paper" arc): extend corpus to 9
   crossings via Spherogram hands (probe pending -- Spherogram name coverage
   for 9_x NOT yet verified), exact tables (3^9 states/shadow), retune,

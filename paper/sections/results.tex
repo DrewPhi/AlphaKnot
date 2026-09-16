@@ -64,6 +64,29 @@ value sign; 35/35 per-knot \texttt{SOLVED: YES} each), with solving epochs
 190, 230, and 240 at 2--2.5~hours per seed. The G1 three-seed gate is closed
 for this configuration.
 
+\subsection{Train-to-test generalization}
+\label{sec:generalization}
+
+Fitting the same width-192 configuration on the frozen \texttt{train} split
+only (25 knots, 106,495 states) while grading the disjoint \texttt{test} split
+(5 knots, 21,185 states; exact labels grade but never train; checkpoints
+selected on train metrics) gives a clean capacity-versus-transfer split
+(jobs 26384918/26384919/26384920, seeds 0/1/2, 1.7--1.9~hours each). All three
+seeds recover full train mastery---\texttt{MIXED\_SIZE\_CAPACITY\_SOLVED: YES}
+at epochs 235, 245, and 235 with every train knot \texttt{SOLVED: YES}---and
+all three fail every held-out knot: 15/15 \texttt{HELDOUT~\ldots~SOLVED: NO}
+cells. Best-checkpoint held-out agreement is 72.00\% / 67.82\% (seed~0),
+70.39\% / 67.81\% (seed~1), and 70.90\% / 65.82\% (seed~2) on policy /
+value sign over 21,185 states, with no knot solved by any seed
+(e.g.\ $8_{20}$ policy: 4,452, 4,272, and 4,202 of 6,305). Supervised
+exact-table training at this scale memorizes the diagrams it sees and does
+not transfer to held-out knot types: far above chance, far below the
+certification bar, consistently across seeds. This negative result is the
+baseline the corpus extension (exact supervision through ten crossings) and
+the self-play program must beat; past the exact-table ceiling, certification
+gives way to empirical agreement (arena results and raw-versus-MCTS policy
+convergence) by design.
+
 \subsection{Validation status}
 \label{sec:validation}
 

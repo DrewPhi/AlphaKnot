@@ -11,7 +11,10 @@ standard prime-knot table diagrams from three through eight crossings. These
 are supervised representational-capacity results: the targets come from exact
 tables, so they establish that the architecture can express the solution, not
 that self-play discovered it or that it generalizes to held-out shadows. The
-frozen corpus manifest with knot-type-disjoint splits defines the generalization
-test, and an exploratory diffusion-geometry pilot over learned activations
+generalization test is now run, not just defined: three seeds trained on the
+frozen 25-knot train split recover full train mastery yet solve none of the
+five held-out knot types ($\sim$71\% policy agreement, consistently across
+seeds)---supervised memorization without transfer at this scale. An
+exploratory diffusion-geometry pilot over learned activations
 suggests strategically organized knot embeddings whose quantitative validation
 remains future work.

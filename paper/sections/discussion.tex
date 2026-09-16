@@ -25,24 +25,29 @@ disentangle.
 
 \begin{itemize}
     \item Supervised capacity only; no self-play solution yet. The AlphaZero
-        run reaches 71.73\% optimal top-policy play on the fixed shadow.
+        run reaches 71.73\% optimal top-policy play on the fixed shadow, and
+        three train-only seeds master 25 diagrams yet solve none of five
+        held-out knot types ($\sim$71\% policy agreement).
     \item One table diagram per knot type; knot-level claims need multi-diagram
         robustness and shadow-level dedup beyond the current manifest.
     \item Eight-crossing production bound not yet raised (independent
-        validation pending); larger crossing numbers need validated terminal
-        classification and new exact-table budgets ($3^9 = 19{,}683$ states per
-        shadow at nine crossings).
+        validation pending); exact supervision extends through ten crossings
+        ($3^{10} = 59{,}049$ states per shadow), past which certification
+        gives way to empirical agreement by design.
     \item Diffusion geometry exploratory; all quantitative controls pending.
 \end{itemize}
 
 \subsection{Next steps}
 \label{sec:next}
 
-In near-term order (ROADMAP): multi-seed mixed-size capacity with variance
-reporting; independent eight-crossing invariant validation and bound decision;
-richer diagram/shadow metadata with additional non-tabulated diagrams under
-frozen splits; a shared variable-size AlphaZero self-play run graded by raw
-versus MCTS policy against exact tables; canonical activation/MCTS export at
-all five stages; and diffusion comparison with the full control battery. Each
+In near-term order: corpus extension to nine- and ten-crossing table diagrams
+under frozen knot-type-disjoint splits (Spherogram name coverage verified
+through twelve crossings); scaled exact-supervised training to train mastery
+on the 3--10 catalog ($\sim$10.7M nonterminal states); a shared
+variable-size AlphaZero self-play run past the exact-table ceiling, graded by
+arena results and raw-versus-MCTS policy agreement against exact tables where
+available; canonical activation/MCTS export at
+all five stages; and diffusion comparison with the full control battery,
+colored by SnapPy and KnotInfo invariants. Each
 step lands in \texttt{docs/EXPERIMENTS.md} with commit, job ID, configuration,
 elapsed time, exact metrics, and verdict before it enters this paper.

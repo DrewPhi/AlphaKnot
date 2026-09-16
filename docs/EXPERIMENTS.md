@@ -328,15 +328,43 @@ not generalization: every evaluated state supplied an exact label.
 
 ### Train-to-test generalization runs 26384918/26384919/26384920
 
-- Date: 2026-09-16 (submitted; queued at time of writing)
+- Date: 2026-09-16 (all complete)
+- Code: rsync of local worktree at `006c421` (with `--split train
+  --eval-split test` support from `2cd1c92`); remote submit via
+  `/tmp/ak_gen.sh` (`SEED=0/1/2`)
+- Cluster: Yale Bouchet, 1 RTX 5000 Ada GPU, 6 CPUs, `gpu` partition
 - Configuration: width-192 six-layer variable port transformer, batch 256,
-  LR 0.001, 20 warmup epochs, 300 epochs, `--split train --eval-split test`,
-  seeds 0/1/2
-- Train split: 25 knots (all crossing counts represented); held-out test
-  split: 5_2, 7_7, 8_19, 8_20, 8_21 (held-out exact labels grade only)
+  LR 0.001, 20 warmup epochs, 300 epochs max, `--split train --eval-split test`
+- Train split: 25 knots (106,495 states, crossings 3..8); held-out test
+  split: 5_2, 7_7, 8_19, 8_20, 8_21 (21,185 states; held-out exact labels
+  grade only, never train; checkpoints selected on train metrics only)
 - Purpose: first true generalization measurement (G1.3 setting iii). Verdict
-  criterion is per-knot `HELDOUT_SOLVED` on the frozen test split; training
-  checkpoints are selected on train metrics only.
+  criterion is per-knot `HELDOUT_SOLVED` on the frozen test split.
+
+| Seed | Job | Elapsed | Train solved epoch | Held-out policy | Held-out value | Verdict |
+| --- | --- | --- | ---: | --- | --- | :---: |
+| 0 | 26384918 | 1h43m05s | 235 (106,495/106,495) | 15,254/21,185 (72.00%) | 14,367/21,185 (67.82%) | train YES / HELDOUT NO |
+| 1 | 26384919 | 1h53m28s | 245 | 14,912/21,185 (70.39%) | 14,365/21,185 (67.81%) | train YES / HELDOUT NO |
+| 2 | 26384920 | 1h44m45s | 235 (106,495/106,495) | 15,020/21,185 (70.90%) | 13,945/21,185 (65.82%) | train YES / HELDOUT NO |
+
+Best-checkpoint per-knot held-out detail (policy correct / value correct):
+
+| Knot | Seed 0 | Seed 1 | Seed 2 |
+| --- | --- | --- | --- |
+| H:5_2 (211) | 180 / 188 | 194 / 202 | 190 / 195 |
+| H:7_7 (2,059) | 1,514 / 1,191 | 1,483 / 1,139 | 1,494 / 1,164 |
+| H:8_19 (6,305) | 4,597 / 4,248 | 4,684 / 4,490 | 4,789 / 4,383 |
+| H:8_20 (6,305) | 4,452 / 4,487 | 4,272 / 4,290 | 4,202 / 4,122 |
+| H:8_21 (6,305) | 4,511 / 4,253 | 4,279 / 4,244 | 4,345 / 4,081 |
+
+Every train-split knot reaches `SOLVED: YES` at the best checkpoint in all
+three seeds (replicating the shared-capacity result under the train-only
+fit), while all 15 held-out knot-seed cells read `HELDOUT ... SOLVED: NO`.
+Supervised exact-table training masters the diagrams it sees and does not
+transfer to held-out knot types at this scale: ~71% policy agreement sits
+far above chance yet far below the 100% certification bar, consistently
+across seeds. This is the baseline the 9-10 crossing extension and the
+self-play program must beat.
 
 ### KnotInfo nine-crossing structural validation (local)
 
