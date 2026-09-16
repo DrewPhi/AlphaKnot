@@ -250,12 +250,24 @@ independent SnapPy/KnotInfo invariant comparison required before raising
 
 ### Multi-seed shared-capacity runs 26332106/26332107
 
-- Date: 2026-09-15 (seed 1 complete; seed 2 queued at time of writing)
+- Date: 2026-09-15/16 (all complete)
 - Configuration: width-192 six-layer variable port transformer, batch 256,
   LR 0.001, 20 warmup epochs, 300 epochs (seed 0 established in
   run 24128608 at epoch 190)
 - Purpose: G1 exit-gate optimization-variance estimate for the primary
   representation-analysis configuration
+
+| Seed | Job | Elapsed | Solved epoch | Policy | Value sign | Verdict |
+| --- | --- | --- | ---: | --- | --- | :---: |
+| 0 | 24128608 (sweep) | part of 7h56m | 190 | 149,319/149,319 | 149,319/149,319 | YES |
+| 1 | 26332106 | 2h18m39s | 230 | 149,319/149,319 (99.99% mass) | 149,319/149,319 | YES |
+| 2 | 26332107 | 2h25m37s | 240 | 149,319/149,319 (99.99% mass) | 149,319/149,319 | YES |
+
+All three seeds solve with identical final metrics (35/35 per-knot
+`SOLVED: YES`, no `SOLVED: NO` lines); only the solving epoch varies
+(190/230/240). The G1 three-seed optimization-variance gate is closed for the
+width-192 configuration. This remains shared supervised capacity, not
+generalization: every evaluated state supplied an exact label.
 
 ### Width-192 seed-1 run 26332106
 

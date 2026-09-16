@@ -57,11 +57,12 @@ width-192 six-layer model at epoch~190, width-256 six-layer at epoch~250, and
 width-256 eight-layer at epoch~230, each 149,319/149,319 on policy and value
 sign in 7~hours 56~minutes total. The width-192 checkpoint is the primary
 representation-analysis model as the smallest and earliest solver. Optimization
-variance is now partly measured: seed~1 (job 26332106, 2~hours 18~minutes)
-solves at epoch~230 with identical final metrics (149,319/149,319 on policy at
-99.99\% mean optimal mass and 149,319/149,319 on value sign; 35/35 per-knot
-\texttt{SOLVED: YES}), against seed~0's epoch~190. Seed~2 is queued; the G1
-three-seed gate closes when it reports.
+variance is now measured across three seeds of the width-192 configuration
+(jobs 24128608/26332106/26332107): all solve with identical final metrics
+(149,319/149,319 on policy at 99.99\% mean optimal mass and 149,319/149,319 on
+value sign; 35/35 per-knot \texttt{SOLVED: YES} each), with solving epochs
+190, 230, and 240 at 2--2.5~hours per seed. The G1 three-seed gate is closed
+for this configuration.
 
 \subsection{Validation status}
 \label{sec:validation}
