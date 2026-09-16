@@ -283,7 +283,7 @@ not generalization: every evaluated state supplied an exact label.
 - Checks per terminal: label multiplicities 1..18 twice each, cyclic
   under-strand adjacency, well-defined crossing signs, Jones determinism, and
   canonical-relativization invariance; plus source-diagram Jones determinism
-- Result: **49/49 shadows pass** (Jones=1 counts range 204--326 per shadow;
+- Result: **49/49 shadows pass** (Jones=1 counts range 186--326 per shadow;
   game-rule outcomes, not knot identities)
 
 Structural precondition only. Exact tables at $n=9$ ($3^9 = 19{,}683$ states
