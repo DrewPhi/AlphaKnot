@@ -50,6 +50,11 @@ identity, and depth (\texttt{variable\_size\_capacity\_test.py}, supporting
 \texttt{--split} for frozen train/validation/test reporting); and
 (iii) \emph{held-out generalization}, evaluation on frozen shadows or knot
 types whose exact tables supplied no training label. Only (iii) may be called
-generalization. Self-play (G1.4) trains without exact targets and is compared
+generalization. The variable-size script supports
+\texttt{--split train --eval-split test}: training and checkpoint selection
+use train metrics only, while frozen held-out exact tables grade each eval
+epoch and the best checkpoint per knot (\texttt{HELDOUT\_SOLVED}). Held-out
+exact labels grade but never train---reports must state this.
+Self-play (G1.4) trains without exact targets and is compared
 to minimax by raw-network policy, fixed-budget MCTS policy, and exact tables
 on every tractable shadow.

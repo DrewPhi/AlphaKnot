@@ -313,6 +313,31 @@ Two of three G1-gate seeds now solve with identical final metrics; only the
 solving epoch varies (190 vs 230). This remains shared supervised capacity,
 not generalization: every evaluated state supplied an exact label.
 
+### Generalization plumbing smoke 26384443
+
+- Date: 2026-09-16
+- Code: `--split train --eval-split test` support added to
+  `variable_size_capacity_test.py` (refactored per-split dataset builder;
+  overlap/leakage guards; checkpoint selection on train metrics only)
+- Cluster: Yale Bouchet, 1 RTX 5000 Ada GPU, `gpu_devel`
+- Configuration: width-32 two-layer toy model, 6 epochs (plumbing only)
+- Elapsed time: 6 minutes 22 seconds, COMPLETED
+- Held-out test knots graded but never trained on: 5_2, 7_7, 8_19, 8_20,
+  8_21; `HELDOUT <knot> SOLVED` lines print at every eval epoch as designed
+- Toy-model held-out numbers are not a result (6-epoch width-32 control)
+
+### Train-to-test generalization runs 26384918/26384919/26384920
+
+- Date: 2026-09-16 (submitted; queued at time of writing)
+- Configuration: width-192 six-layer variable port transformer, batch 256,
+  LR 0.001, 20 warmup epochs, 300 epochs, `--split train --eval-split test`,
+  seeds 0/1/2
+- Train split: 25 knots (all crossing counts represented); held-out test
+  split: 5_2, 7_7, 8_19, 8_20, 8_21 (held-out exact labels grade only)
+- Purpose: first true generalization measurement (G1.3 setting iii). Verdict
+  criterion is per-knot `HELDOUT_SOLVED` on the frozen test split; training
+  checkpoints are selected on train metrics only.
+
 ### KnotInfo nine-crossing structural validation (local)
 
 - Date: 2026-09-15

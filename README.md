@@ -172,6 +172,21 @@ classification in `KnotGraphGame` remains capped by
 `config.max_validated_crossings`; the mixed-size experiment does not silently
 raise that safety bound.
 
+Frozen manifest splits (`corpus_manifest.py`) drive per-split capacity fits;
+`all` preserves the legacy mixed-corpus behavior and must not be called
+generalization because every evaluated state still supplies an exact label:
+
+```bash
+python variable_size_capacity_test.py --split train --device cuda
+python variable_size_capacity_test.py --split train --eval-split test --device cuda
+python validate_8crossing_terminals.py
+```
+
+With `--eval-split`, the model trains only on the first split while frozen
+held-out exact tables grade it (labels used for grading only, never for
+training). This is the generalization measurement; `--split` alone only
+restricts the capacity corpus.
+
 To export matched penultimate-layer strategy activations, construct one
 diffusion operator per knot, and generate knot- and state-level PHATE maps from
 the solved shared checkpoint:

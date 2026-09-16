@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """Fit one exact-supervised model to standard prime diagrams of mixed sizes.
 
-This is a representational-capacity experiment.  Every evaluated exact state
-also supplies a training label; it is not a self-play or generalization result.
+With ``--split all`` (default) this is a representational-capacity experiment:
+every evaluated exact state also supplies a training label. With
+``--split <train> --eval-split <held-out>`` it additionally measures
+generalization: the model trains only on the train split while frozen
+knot-type-disjoint held-out exact tables grade it. Held-out exact labels are
+used for grading only, never for training; reports must state this.
 """
 
 import argparse
@@ -102,41 +106,12 @@ def print_metrics(label, row):
     )
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--min-crossings", type=int, default=3)
-    parser.add_argument("--max-crossings", type=int, default=8)
-    parser.add_argument("--epochs", type=int, default=300)
-    parser.add_argument("--eval-every", type=int, default=5)
-    parser.add_argument("--batch-size", type=int, default=256)
-    parser.add_argument("--learning-rate", type=float, default=1e-3)
-    parser.add_argument("--weight-decay", type=float, default=0.0)
-    parser.add_argument("--dropout", type=float, default=0.0)
-    parser.add_argument("--hidden-dim", type=int, default=192)
-    parser.add_argument("--num-heads", type=int, default=8)
-    parser.add_argument("--num-layers", type=int, default=6)
-    parser.add_argument("--warmup-epochs", type=int, default=20)
-    parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--checkpoint", default="checkpoints/prime_3_to_8_variable.pth.tar")
-    parser.add_argument("--device", default="cuda")
-    args = parser.parse_args()
+def build_split_dataset(records):
+    """Build exact-supervised graphs for one frozen split of records.
 
-    if not 3 <= args.min_crossings <= args.max_crossings <= 8:
-        raise SystemExit("current versioned corpus supports crossing counts 3 through 8")
-    if args.hidden_dim % args.num_heads:
-        raise SystemExit("hidden-dim must be divisible by num-heads")
-    if min(args.epochs, args.eval_every, args.batch_size, args.num_layers) < 1:
-        raise SystemExit("epochs, eval-every, batch-size, and layers must be positive")
-    if not 0 <= args.warmup_epochs < args.epochs:
-        raise SystemExit("warmup-epochs must be nonnegative and less than epochs")
-
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(args.seed)
-
-    records = corpus_records(args.min_crossings, args.max_crossings)
+    Returns (games, dataset, names, sampling_weights) with hierarchical
+    weights giving equal total mass per crossing number, knot, and depth.
+    """
     names = [name for name, _ in records]
     knot_counts = Counter(len(pd_code) for _, pd_code in records)
     games = []
@@ -163,6 +138,93 @@ def main():
         games.append(game)
         dataset.extend(examples)
         print(f"Exact table {name}: {len(examples)} nonterminal states")
+    return games, dataset, names, sampling_weights
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--min-crossings", type=int, default=3)
+    parser.add_argument("--max-crossings", type=int, default=8)
+    parser.add_argument("--epochs", type=int, default=300)
+    parser.add_argument("--eval-every", type=int, default=5)
+    parser.add_argument("--batch-size", type=int, default=256)
+    parser.add_argument("--learning-rate", type=float, default=1e-3)
+    parser.add_argument("--weight-decay", type=float, default=0.0)
+    parser.add_argument("--dropout", type=float, default=0.0)
+    parser.add_argument("--hidden-dim", type=int, default=192)
+    parser.add_argument("--num-heads", type=int, default=8)
+    parser.add_argument("--num-layers", type=int, default=6)
+    parser.add_argument("--warmup-epochs", type=int, default=20)
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--checkpoint", default="checkpoints/prime_3_to_8_variable.pth.tar")
+    parser.add_argument("--device", default="cuda")
+    parser.add_argument(
+        "--split",
+        default="all",
+        choices=("all", "train", "validation", "test"),
+        help="Frozen corpus-manifest split to fit; 'all' preserves the legacy "
+        "mixed-size capacity behavior and must not be called generalization.",
+    )
+    parser.add_argument(
+        "--eval-split",
+        default=None,
+        choices=("train", "validation", "test"),
+        help="Frozen knot-type-disjoint split graded but never trained on. "
+        "Held-out exact labels are used for grading only.",
+    )
+    args = parser.parse_args()
+
+    if not 3 <= args.min_crossings <= args.max_crossings <= 8:
+        raise SystemExit("current versioned corpus supports crossing counts 3 through 8")
+    if args.hidden_dim % args.num_heads:
+        raise SystemExit("hidden-dim must be divisible by num-heads")
+    if min(args.epochs, args.eval_every, args.batch_size, args.num_layers) < 1:
+        raise SystemExit("epochs, eval-every, batch-size, and layers must be positive")
+    if not 0 <= args.warmup_epochs < args.epochs:
+        raise SystemExit("warmup-epochs must be nonnegative and less than epochs")
+
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(args.seed)
+
+    records = corpus_records(args.min_crossings, args.max_crossings)
+    if args.split != "all":
+        from corpus_manifest import records_for_split
+
+        allowed = {
+            name
+            for name, _ in records_for_split(
+                args.split, args.min_crossings, args.max_crossings
+            )
+        }
+        records = [(name, pd_code) for name, pd_code in records if name in allowed]
+        if not records:
+            raise SystemExit(f"split {args.split!r} has no records in range")
+    games, dataset, names, sampling_weights = build_split_dataset(records)
+
+    heldout_loader = None
+    heldout_names = []
+    if args.eval_split is not None:
+        from corpus_manifest import records_for_split
+
+        if args.eval_split == args.split:
+            raise SystemExit("eval-split must differ from the training split")
+        heldout_records = [
+            (name, pd_code)
+            for name, pd_code in records_for_split(
+                args.eval_split, args.min_crossings, args.max_crossings
+            )
+        ]
+        overlap = {name for name, _ in heldout_records} & set(names)
+        if overlap:
+            raise SystemExit(f"eval-split leaks training knots: {sorted(overlap)}")
+        if not heldout_records:
+            raise SystemExit(f"eval-split {args.eval_split!r} has no records in range")
+        print(f"Held-out grading split: {args.eval_split} "
+              f"({len(heldout_records)} knots; labels used for grading only)")
+        _, heldout_dataset, heldout_names, _ = build_split_dataset(heldout_records)
 
     device = torch.device(
         args.device if args.device != "cuda" or torch.cuda.is_available() else "cpu"
@@ -176,6 +238,10 @@ def main():
     )
     train_loader = DataLoader(dataset, batch_size=args.batch_size, sampler=sampler)
     eval_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
+    if heldout_loader is None and heldout_names:
+        heldout_loader = DataLoader(
+            heldout_dataset, batch_size=args.batch_size, shuffle=False
+        )
     network = NNetWrapper(
         games[0],
         hidden_dim=args.hidden_dim,
@@ -251,6 +317,19 @@ def main():
                 f"n={crossings}",
                 aggregate(row for name, row in by_knot.items() if name.startswith(f"{crossings}_")),
             )
+        if heldout_loader is not None:
+            # Grading only: never influences training or checkpoint selection.
+            heldout = evaluate(network.model, heldout_loader, device, heldout_names)
+            print_metrics("heldout", aggregate(heldout.values()))
+            for name in heldout_names:
+                row = heldout[name]
+                solved = (
+                    row["policy_correct"] == row["states"]
+                    and row["value_correct"] == row["states"]
+                )
+                print(f"HELDOUT {name} SOLVED: {'YES' if solved else 'NO'} "
+                      f"({row['policy_correct']}/{row['states']} policy, "
+                      f"{row['value_correct']}/{row['states']} value)")
         if all(
             row["policy_correct"] == row["states"]
             and row["value_correct"] == row["states"]
@@ -271,6 +350,23 @@ def main():
             and final[name]["value_correct"] == final[name]["states"]
         )
         print(f"{name} SOLVED: {'YES' if solved else 'NO'}")
+    if heldout_loader is not None:
+        heldout_final = evaluate(
+            network.model, heldout_loader, device, heldout_names
+        )
+        print("=== Best-checkpoint held-out results by knot "
+              "(grading only; never trained on) ===")
+        heldout_solved = True
+        for name in heldout_names:
+            row = heldout_final[name]
+            solved = (
+                row["policy_correct"] == row["states"]
+                and row["value_correct"] == row["states"]
+            )
+            heldout_solved = heldout_solved and solved
+            print_metrics(f"H:{name}", row)
+            print(f"HELDOUT {name} SOLVED: {'YES' if solved else 'NO'}")
+        print(f"HELDOUT_SOLVED: {'YES' if heldout_solved else 'NO'}")
     print(f"Best checkpoint: {checkpoint}")
 
 
