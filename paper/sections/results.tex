@@ -87,6 +87,21 @@ the self-play program must beat; past the exact-table ceiling, certification
 gives way to empirical agreement (arena results and raw-versus-MCTS policy
 convergence) by design.
 
+\subsection{Nine-crossing capacity frontier}
+\label{sec:nine}
+
+The corpus now holds 249 Spherogram table diagrams through ten crossings
+(\texttt{prime-catalog-v2}). The first 3--9 capacity probe (job 26414849;
+all 84 diagrams, 1,088,698 exact-supervised states, width-192, batch 512,
+400-epoch budget) timed out after 18~hours without solving; grading its best
+checkpoint (job 26646723, \texttt{--eval-only}) gives 69/84 knots
+\texttt{SOLVED: YES} with every one of the 15 failures 1--4 states short of
+perfect (combined 99.9976\% policy, 99.9988\% value sign). Two eight-crossing
+knots ($8_{17}$, $8_{20}$) regressed two states from their solved 3--8
+verdicts---capacity interference from the nine-crossing load. The frontier is
+therefore optimization-or-capacity at fixed width, not a collapse; a width-256
+probe under the same protocol is the immediate next run.
+
 \subsection{Validation status}
 \label{sec:validation}
 

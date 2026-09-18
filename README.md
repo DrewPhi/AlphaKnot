@@ -165,6 +165,16 @@ python variable_size_capacity_test.py --min-crossings 3 --max-crossings 8 --devi
 sbatch jobscript_bouchet_prime_3_to_8_sweep.sh
 ```
 
+The catalog extends through ten crossings (249 table diagrams; callers default
+to the 3--8 legacy range, pass explicit bounds for more). The 3-to-9 capacity
+probe and the 9/10-crossing terminal validation are:
+
+```bash
+sbatch jobscript_bouchet_prime_3_to_9.sh
+python validate_9_10_terminals.py --crossings 9 --workers 6
+python validate_9_10_terminals.py --crossings 10 --workers 6
+```
+
 The training loader samples hierarchically so crossing number, knot identity,
 and game depth receive balanced mass. This remains exact-supervised capacity,
 not AlphaZero self-play or held-out generalization. Production terminal

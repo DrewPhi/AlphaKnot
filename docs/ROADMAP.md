@@ -94,8 +94,9 @@ policy or value targets.
 ## Milestone G2: eight crossings
 
 The first G2 implementation is now present. `prime_knot_corpus.py` stores the
-35 standard Spherogram table diagrams for prime knots from three through eight
-crossings. `variable_size_capacity_test.py` supports mixed-size batches,
+249 standard Spherogram table diagrams for prime knots from three through ten
+crossings (35 in the 3--8 legacy range, plus 49 nine- and 165 ten-crossing
+records; callers default to 3--8 unless given explicit bounds). `variable_size_capacity_test.py` supports mixed-size batches,
 nodewise keep/switch supervision, padded legal-action masks, hierarchical
 sampling, and per-knot/per-crossing exact reporting. The new
 `variable-port-transformer` uses scale-free canonical traversal features rather

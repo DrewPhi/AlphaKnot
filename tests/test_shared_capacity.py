@@ -1,4 +1,6 @@
 import unittest
+from unittest import mock
+import sys
 
 import torch
 from torch_geometric.data import Batch
@@ -10,6 +12,7 @@ from knot_graph_nnet import PDStateMLP, PortGraphTransformerNet
 from pd_code_utils import canonicalize_pd_code, crossing_sign
 from prime_knot_corpus import corpus_records as prime_corpus_records
 from prime_knot_corpus import validate_corpus as validate_prime_corpus
+from variable_size_capacity_test import main as variable_size_main
 from seven_crossing_corpus import corpus_records, validate_corpus
 from variable_size_capacity_test import aggregate, dense_action_targets
 
@@ -112,6 +115,20 @@ class PrimeKnotCorpusTests(unittest.TestCase):
             {3: 1, 4: 1, 5: 2, 6: 3, 7: 7, 8: 21},
         )
 
+    def test_extended_prime_table_through_ten_crossings(self):
+        validate_prime_corpus(min_crossings=3, max_crossings=10)
+        records = prime_corpus_records(3, 10)
+        self.assertEqual(len(records), 249)
+        self.assertEqual(records[0][0], "3_1")
+        self.assertEqual(records[-1][0], "10_165")
+        self.assertEqual(
+            {
+                crossings: sum(len(pd_code) == crossings for _, pd_code in records)
+                for crossings in range(3, 11)
+            },
+            {3: 1, 4: 1, 5: 2, 6: 3, 7: 7, 8: 21, 9: 49, 10: 165},
+        )
+
     def test_variable_model_batches_three_and_eight_crossing_games(self):
         records = dict(prime_corpus_records())
         small_game = KnotGraphGame(pd_code=records["3_1"])
@@ -179,6 +196,21 @@ class PrimeKnotCorpusTests(unittest.TestCase):
             aggregate(iter(rows)),
             {"states": 5, "policy_correct": 3, "value_correct": 3, "optimal_mass": 3.5},
         )
+
+
+class EvalOnlyTests(unittest.TestCase):
+    def test_eval_only_missing_checkpoint_exits_without_training(self):
+        argv = [
+            "variable_size_capacity_test",
+            "--min-crossings", "3",
+            "--max-crossings", "3",
+            "--eval-only",
+            "--checkpoint", "/tmp/opencode-test-missing-ckpt.pth.tar",
+            "--device", "cpu",
+        ]
+        with mock.patch.object(sys, "argv", argv):
+            with self.assertRaises(SystemExit):
+                variable_size_main()
 
 
 if __name__ == "__main__":

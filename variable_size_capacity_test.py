@@ -141,6 +141,40 @@ def build_split_dataset(records):
     return games, dataset, names, sampling_weights
 
 
+def report_best_checkpoint(
+    network, device, eval_loader, names, heldout_loader, heldout_names,
+    checkpoint,
+):
+    """Print the exact per-knot grading report for the loaded checkpoint."""
+    final = evaluate(network.model, eval_loader, device, names)
+    print("=== Best-checkpoint exact results by knot ===")
+    for name in names:
+        print_metrics(name, final[name])
+        solved = (
+            final[name]["policy_correct"] == final[name]["states"]
+            and final[name]["value_correct"] == final[name]["states"]
+        )
+        print(f"{name} SOLVED: {'YES' if solved else 'NO'}")
+    if heldout_loader is not None:
+        heldout_final = evaluate(
+            network.model, heldout_loader, device, heldout_names
+        )
+        print("=== Best-checkpoint held-out results by knot "
+              "(grading only; never trained on) ===")
+        heldout_solved = True
+        for name in heldout_names:
+            row = heldout_final[name]
+            solved = (
+                row["policy_correct"] == row["states"]
+                and row["value_correct"] == row["states"]
+            )
+            heldout_solved = heldout_solved and solved
+            print_metrics(f"H:{name}", row)
+            print(f"HELDOUT {name} SOLVED: {'YES' if solved else 'NO'}")
+        print(f"HELDOUT_SOLVED: {'YES' if heldout_solved else 'NO'}")
+    print(f"Best checkpoint: {checkpoint}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--min-crossings", type=int, default=3)
@@ -172,10 +206,16 @@ def main():
         help="Frozen knot-type-disjoint split graded but never trained on. "
         "Held-out exact labels are used for grading only.",
     )
+    parser.add_argument(
+        "--eval-only",
+        action="store_true",
+        help="Skip training; load --checkpoint and print the exact "
+        "per-knot grading report (train split plus --eval-split if given).",
+    )
     args = parser.parse_args()
 
-    if not 3 <= args.min_crossings <= args.max_crossings <= 8:
-        raise SystemExit("current versioned corpus supports crossing counts 3 through 8")
+    if not 3 <= args.min_crossings <= args.max_crossings <= 10:
+        raise SystemExit("current versioned corpus supports crossing counts 3 through 10")
     if args.hidden_dim % args.num_heads:
         raise SystemExit("hidden-dim must be divisible by num-heads")
     if min(args.epochs, args.eval_every, args.batch_size, args.num_layers) < 1:
@@ -288,6 +328,18 @@ def main():
         f"parameters={parameter_count:,}; seed={args.seed}"
     )
 
+    if args.eval_only:
+        if not checkpoint.is_file():
+            raise SystemExit(
+                f"--eval-only needs an existing checkpoint: {checkpoint}"
+            )
+        network.load_checkpoint(str(checkpoint), load_optimizer=False)
+        report_best_checkpoint(
+            network, device, eval_loader, names,
+            heldout_loader, heldout_names, checkpoint,
+        )
+        return
+
     best_score = None
     for epoch in range(1, args.epochs + 1):
         loss = train_epoch(network.model, train_loader, optimizer, device)
@@ -341,33 +393,10 @@ def main():
         print("MIXED_SIZE_CAPACITY_SOLVED: NO")
 
     network.load_checkpoint(str(checkpoint), load_optimizer=False)
-    final = evaluate(network.model, eval_loader, device, names)
-    print("=== Best-checkpoint exact results by knot ===")
-    for name in names:
-        print_metrics(name, final[name])
-        solved = (
-            final[name]["policy_correct"] == final[name]["states"]
-            and final[name]["value_correct"] == final[name]["states"]
-        )
-        print(f"{name} SOLVED: {'YES' if solved else 'NO'}")
-    if heldout_loader is not None:
-        heldout_final = evaluate(
-            network.model, heldout_loader, device, heldout_names
-        )
-        print("=== Best-checkpoint held-out results by knot "
-              "(grading only; never trained on) ===")
-        heldout_solved = True
-        for name in heldout_names:
-            row = heldout_final[name]
-            solved = (
-                row["policy_correct"] == row["states"]
-                and row["value_correct"] == row["states"]
-            )
-            heldout_solved = heldout_solved and solved
-            print_metrics(f"H:{name}", row)
-            print(f"HELDOUT {name} SOLVED: {'YES' if solved else 'NO'}")
-        print(f"HELDOUT_SOLVED: {'YES' if heldout_solved else 'NO'}")
-    print(f"Best checkpoint: {checkpoint}")
+    report_best_checkpoint(
+        network, device, eval_loader, names,
+        heldout_loader, heldout_names, checkpoint,
+    )
 
 
 if __name__ == "__main__":

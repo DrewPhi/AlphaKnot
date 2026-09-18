@@ -366,6 +366,53 @@ far above chance yet far below the 100% certification bar, consistently
 across seeds. This is the baseline the 9-10 crossing extension and the
 self-play program must beat.
 
+### Nine-crossing capacity probe 26414849 / eval 26646723
+
+- Date: 2026-09-16/17 (train) + 2026-09-18 (eval)
+- Code: rsync of local worktree with 249-record corpus (`prime-catalog-v2`);
+  `jobscript_bouchet_prime_3_to_9.sh`
+- Cluster: Yale Bouchet, 1 RTX 5000 Ada GPU, 6 CPUs, `gpu` partition
+- Configuration: width-192 six-layer variable port transformer, batch 512
+  (up from 256: the dataset is ~7x the 3-8 run), LR 0.001, 20 warmup epochs,
+  400 epochs max, `--min-crossings 3 --max-crossings 9`, split `all`
+  (capacity, no held-out), seed 0
+- Corpus: all 84 table diagrams 3-9, 1,088,698 exact-supervised nonterminal
+  states (149,319 legacy + 49 x 19,171 at 9x)
+- Train job 26414849: **TIMEOUT after 18h00m06s** without solving or exiting;
+  block-buffered stdout never flushed (only the header survived), so the
+  reached epoch is unknown. Lesson recorded in the job script: all cluster
+  launches must use `python -u`.
+- Eval job 26646723 (`--eval-only` on the best checkpoint, 38m55s):
+  **69/84 knots `SOLVED: YES`, 15 near-miss `NO`**. Combined policy
+  1,088,672/1,088,698 (99.9976%), value 1,088,685/1,088,698 (99.9988%).
+
+Near-miss detail (each failure is 1-4 states short):
+
+| Knot | Policy | Value |
+| --- | --- | --- |
+| 8_17 (6,305) | 6,303 | 6,305 |
+| 8_20 (6,305) | 6,303 | 6,305 |
+| 9_20 | 19,170/19,171 | 19,171 |
+| 9_26 | 19,168 | 19,170 |
+| 9_28 | 19,170 | 19,171 |
+| 9_30 | 19,171 | 19,169 |
+| 9_31 | 19,168 | 19,171 |
+| 9_32 | 19,170 | 19,170 |
+| 9_34 | 19,169 | 19,170 |
+| 9_37 | 19,171 | 19,170 |
+| 9_38 | 19,167 | 19,171 |
+| 9_40 | 19,168 | 19,167 |
+| 9_41 | 19,170 | 19,170 |
+| 9_45 | 19,171 | 19,170 |
+| 9_48 | 19,168 | 19,170 |
+
+Reading: the width-192 model reaches the doorstep (99.998%) but does not
+close 3-9 capacity in 18h/400 epochs. Notably two 8x knots (8_17, 8_20)
+regressed 2 states from their solved 3-8 verdicts -- capacity interference
+from the 9x load, not just underfitting of new diagrams. Open question is
+capacity vs optimization: the follow-up is a width-256 probe under the same
+protocol.
+
 ### KnotInfo nine-crossing structural validation (local)
 
 - Date: 2026-09-15
